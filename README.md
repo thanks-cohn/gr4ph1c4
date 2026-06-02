@@ -72,3 +72,27 @@ next:
 ```
 
 `examples/bad-syntax.g4` is intentionally invalid and is checked by the smoke test to ensure this error shape is emitted.
+
+## Sine Stream Control Demo
+
+This demo uses a deterministic local sine-wave JSONL emitter.
+It pipes records into Gr4ph1c4 through stdin.
+Gr4ph1c4 keeps only the latest window of values.
+Older values are discarded.
+The demo renders the retained window as an inspectable SVG graph.
+The browser controls reshape the visible graph.
+Capture Moment writes the current state into an on-page JSON block.
+It does not require InfluxDB.
+It does not claim external telemetry ingestion yet.
+
+Run:
+
+```sh
+node dist/main.js emit-sine-stream | node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo
+```
+
+Open:
+
+```text
+dist/sine-demo/index.html
+```

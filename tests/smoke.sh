@@ -4,7 +4,7 @@ set -euo pipefail
 rm -rf dist
 npm run build >/tmp/gr4ph1c4-build.log
 node dist/main.js doctor >/tmp/gr4ph1c4-doctor.log
-if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo' /tmp/gr4ph1c4-doctor.log; then
+if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo, emit-sine-stream, sine-demo' /tmp/gr4ph1c4-doctor.log; then
   echo "smoke failed: doctor did not report the exact real CLI command list" >&2
   exit 1
 fi
@@ -170,4 +170,144 @@ for expected in \
   fi
 done
 
-printf '%s\n' 'PASS GR4PH1C4 V0 PASS 3 smoke'
+
+node dist/main.js emit-sine-stream > dist/sine-stream.jsonl
+line_count=$(wc -l < dist/sine-stream.jsonl | tr -d ' ')
+if [ "$line_count" != "120" ]; then
+  echo "smoke failed: sine stream line count was $line_count not 120" >&2
+  exit 1
+fi
+first_line=$(head -n 1 dist/sine-stream.jsonl)
+last_line=$(tail -n 1 dist/sine-stream.jsonl)
+for expected in '"t":0' '"series":"sine_wave"'; do
+  if ! printf '%s\n' "$first_line" | grep -Fq "$expected"; then
+    echo "smoke failed: sine stream first line missing $expected" >&2
+    exit 1
+  fi
+done
+for expected in '"t":119' '"series":"sine_wave"'; do
+  if ! printf '%s\n' "$last_line" | grep -Fq "$expected"; then
+    echo "smoke failed: sine stream last line missing $expected" >&2
+    exit 1
+  fi
+done
+
+node dist/main.js emit-sine-stream | node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo > dist/sine-demo.stdout.log
+for output_file in dist/sine-demo/index.html dist/sine-demo/sine-window.json dist/sine-demo/proof.log; do
+  if [ ! -f "$output_file" ]; then
+    echo "smoke failed: sine demo output missing $output_file" >&2
+    exit 1
+  fi
+done
+
+for expected in \
+  "Gr4ph1c4 Sine Stream Control Demo" \
+  'data-demo="sine-stream-control"' \
+  'data-stream-source="stdin"' \
+  'data-series="sine_wave"' \
+  'data-records-ingested="120"' \
+  'data-window-size="48"' \
+  'data-records-retained="48"' \
+  'data-records-discarded="72"' \
+  'data-first-retained-t="72"' \
+  'data-last-retained-t="119"' \
+  'data-amplitude="1"' \
+  'data-frequency="1"' \
+  'data-phase="0"' \
+  'data-y-offset="0"' \
+  'data-x-scale="1"' \
+  'data-graph-width="960"' \
+  'data-graph-height="420"' \
+  'data-display-mode="line"' \
+  "records ingested: 120" \
+  "records retained: 48" \
+  "records discarded: 72" \
+  "current window: t=72..119" \
+  "Amplitude" \
+  "Frequency" \
+  "Phase" \
+  "Y Offset" \
+  "X Scale" \
+  "Graph Width" \
+  "Graph Height" \
+  "Visible Points" \
+  "Display Mode" \
+  "Show Grid" \
+  "Show Values" \
+  "Pause" \
+  "Capture Moment" \
+  "<svg" \
+  "<polyline"; do
+  if ! grep -Fq "$expected" dist/sine-demo/index.html; then
+    echo "smoke failed: sine demo index.html missing $expected" >&2
+    exit 1
+  fi
+done
+
+for expected in \
+  '"demoName": "sine-stream-control"' \
+  '"streamSource": "stdin"' \
+  '"series": "sine_wave"' \
+  '"recordsIngested": 120' \
+  '"windowSize": 48' \
+  '"recordsRetained": 48' \
+  '"recordsDiscarded": 72' \
+  '"firstRetainedT": 72' \
+  '"lastRetainedT": 119' \
+  '"amplitude": 1' \
+  '"frequency": 1' \
+  '"phase": 0' \
+  '"yOffset": 0' \
+  '"xScale": 1' \
+  '"graphWidth": 960' \
+  '"graphHeight": 420' \
+  '"visiblePoints": 48' \
+  '"displayMode": "line"' \
+  '"showGrid": true' \
+  '"showValues": false'; do
+  if ! grep -Fq "$expected" dist/sine-demo/sine-window.json; then
+    echo "smoke failed: sine-window.json missing $expected" >&2
+    exit 1
+  fi
+done
+
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/sine-demo/sine-window.json', 'utf8'));
+if (state.records.length !== 48) throw new Error(`records length ${state.records.length} is not 48`);
+if (state.records[0].t !== 72) throw new Error(`first retained t ${state.records[0].t} is not 72`);
+if (state.records[state.records.length - 1].t !== 119) throw new Error(`last retained t ${state.records[state.records.length - 1].t} is not 119`);
+if (state.recordsDiscarded !== 72) throw new Error(`discarded ${state.recordsDiscarded} is not 72`);
+NODE
+
+for expected in \
+  "records ingested: 120" \
+  "window size: 48" \
+  "records retained: 48" \
+  "records discarded: 72" \
+  "first retained t: 72" \
+  "last retained t: 119" \
+  "PASS GR4PH1C4 V0 PASS 4 sine demo proof"; do
+  if ! grep -Fq "$expected" dist/sine-demo/proof.log; then
+    echo "smoke failed: sine proof.log missing $expected" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$expected" dist/sine-demo.stdout.log; then
+    echo "smoke failed: sine stdout proof missing $expected" >&2
+    exit 1
+  fi
+done
+
+if cat examples/bad-sine-stream.jsonl | node dist/main.js sine-demo --stdin --window 2 --out dist/bad-sine >/tmp/gr4ph1c4-bad-sine-stdout.log 2>/tmp/gr4ph1c4-bad-sine-stderr.log; then
+  echo "smoke failed: bad sine stream was accepted" >&2
+  exit 1
+fi
+for expected in "error: GR4_STREAM_INVALID_RECORD" "where:" "what:" "why:" "next:"; do
+  if ! grep -Fq "$expected" /tmp/gr4ph1c4-bad-sine-stderr.log; then
+    echo "smoke failed: bad sine stream stderr missing $expected" >&2
+    exit 1
+  fi
+done
+
+printf '%s\n' 'PASS GR4PH1C4 V0 PASS 4 smoke'
+
