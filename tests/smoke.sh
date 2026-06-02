@@ -434,6 +434,8 @@ if ! grep -Fq 'three-ocean-points-demo' /tmp/gr4ph1c4-doctor.log; then
   exit 1
 fi
 
+rm -rf dist/three-ocean-points-demo
+npm run build
 node dist/main.js three-ocean-points-demo > dist/three-ocean-points-demo.stdout.log
 for output_file in \
   dist/three-ocean-points-demo/index.html \
@@ -447,39 +449,52 @@ for output_file in \
 done
 
 for expected in \
-  "Gr4ph1c4 Three.js Ocean Points Demo" \
+  "Gr4ph1c4 Three.js Point Ocean" \
+  "Interactive Ocean Handling" \
   'data-demo="three-ocean-points"' \
-  'data-renderer="threejs"' \
-  'data-scene="ocean-points"' \
-  'data-wave-height="normal"' \
-  'data-point-density="medium"' \
-  'data-motion="normal"' \
-  'data-color-mode="blue"' \
-  "Wave Height" \
-  "Point Density" \
-  "Motion" \
-  "Color Mode" \
-  "Capture Moment" \
-  "renderer: Three.js" \
-  "deterministic wave field" \
-  "local browser demo" \
-  "server required" \
-  "./vendor/three.min.js" \
-  "new THREE.WebGLRenderer" \
-  "new THREE.PointsMaterial" \
-  "new THREE.PerspectiveCamera" \
+  'data-renderer="three.js"' \
+  'data-pass="6B-interactive-ocean-handling"' \
+  "THREE.Points" \
+  "THREE.BufferGeometry" \
   "requestAnimationFrame" \
-  "waveY(point.x, point.z" \
-  "currentTimeSample"; do
+  "localStorage" \
+  "pointerdown" \
+  "wheel" \
+  "Top View" \
+  "Side View" \
+  "Presentation View" \
+  "Save View" \
+  "Restore View" \
+  "Camera Position" \
+  "Camera Target" \
+  "Zoom Distance" \
+  "Command Prompt" \
+  "Drag: orbit" \
+  "Wheel: zoom" \
+  "Shift + drag: pan" \
+  "Spin Ocean" \
+  "Tilt Camera" \
+  "new THREE.WebGLRenderer" \
+  "new THREE.PerspectiveCamera" \
+  "new THREE.BufferGeometry" \
+  "new THREE.Points" \
+  "setCameraView" \
+  "orbitCamera" \
+  "zoomCamera" \
+  "panCamera" \
+  "saveView" \
+  "restoreView" \
+  "STORAGE_KEY" \
+  "./vendor/three.min.js"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html missing $expected" >&2
     exit 1
   fi
 done
 
-for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB; do
+for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls; do
   if grep -Fq "$forbidden" dist/three-ocean-points-demo/index.html; then
-    echo "smoke failed: three ocean index.html contains forbidden remote or fake ingestion evidence $forbidden" >&2
+    echo "smoke failed: three ocean index.html contains forbidden remote/control/fake evidence $forbidden" >&2
     exit 1
   fi
 done
@@ -490,16 +505,19 @@ if ! grep -Fiq 'Three.js' dist/three-ocean-points-demo/vendor/three.min.js || ! 
 fi
 
 for expected in \
-  '"demoName": "three-ocean-points"' \
-  '"renderer": "threejs"' \
-  '"sceneName": "ocean-points"' \
-  '"waveHeight": "normal"' \
-  '"pointDensity": "medium"' \
-  '"motion": "normal"' \
-  '"colorMode": "blue"' \
-  '"serverRequired": false' \
-  '"source": "deterministic-wave-field"' \
-  '"localBundle": "vendor/three.min.js"'; do
+  '"demo": "three-ocean-points"' \
+  '"pass": "6B-interactive-ocean-handling"' \
+  '"defaultCamera"' \
+  '"defaultTarget"' \
+  '"viewPresets"' \
+  '"interactionControls"' \
+  '"animation"' \
+  '"proof"' \
+  '"geometry": "THREE.BufferGeometry"' \
+  '"object": "THREE.Points"' \
+  '"interaction": "orbit zoom pan tilt presets pause reset save restore"' \
+  '"storage": "localStorage"' \
+  '"status": "ok"'; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
     echo "smoke failed: three-ocean-state.json missing $expected" >&2
     exit 1
@@ -509,30 +527,30 @@ done
 node - <<'NODE'
 const fs = require('node:fs');
 const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
-const expected = {
-  demoName: 'three-ocean-points', renderer: 'threejs', sceneName: 'ocean-points',
-  waveHeight: 'normal', pointDensity: 'medium', motion: 'normal', colorMode: 'blue',
-  serverRequired: false, source: 'deterministic-wave-field', localBundle: 'vendor/three.min.js'
-};
-for (const [key, value] of Object.entries(expected)) {
-  if (state[key] !== value) throw new Error(`${key} was ${state[key]} not ${value}`);
+for (const key of ['demo', 'pass', 'defaultCamera', 'defaultTarget', 'viewPresets', 'interactionControls', 'animation', 'proof']) {
+  if (!(key in state)) throw new Error(`missing state key ${key}`);
+}
+if (state.demo !== 'three-ocean-points') throw new Error(`demo was ${state.demo}`);
+if (state.pass !== '6B-interactive-ocean-handling') throw new Error(`pass was ${state.pass}`);
+for (const preset of ['top', 'side', 'presentation']) {
+  if (!state.viewPresets[preset]) throw new Error(`missing preset ${preset}`);
+}
+for (const control of ['orbit', 'spin', 'zoom', 'pan', 'tilt', 'presets', 'pauseResume', 'reset', 'saveRestore']) {
+  if (!(control in state.interactionControls)) throw new Error(`missing interaction control ${control}`);
 }
 NODE
 
 for expected in \
-  "input: deterministic wave field" \
-  "demo: three-ocean-points" \
-  "renderer: threejs" \
-  "scene: ocean-points" \
-  "wave height: normal" \
-  "point density: medium" \
-  "motion: normal" \
-  "color mode: blue" \
-  "server required: no" \
-  "output: dist/three-ocean-points-demo/index.html" \
-  "state: dist/three-ocean-points-demo/three-ocean-state.json" \
-  "three bundle: dist/three-ocean-points-demo/vendor/three.min.js" \
-  "PASS GR4PH1C4 V0 PASS 6 three.js ocean points proof"; do
+  "PASS GR4PH1C4 V0 PASS 6B interactive ocean handling proof" \
+  "command=node dist/main.js three-ocean-points-demo" \
+  "output=dist/three-ocean-points-demo/index.html" \
+  "state=dist/three-ocean-points-demo/three-ocean-state.json" \
+  "renderer=three.js local bundle" \
+  "geometry=THREE.BufferGeometry" \
+  "object=THREE.Points" \
+  "interaction=orbit zoom pan tilt presets pause reset save restore" \
+  "storage=localStorage" \
+  "status=ok"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/proof.log; then
     echo "smoke failed: three proof.log missing $expected" >&2
     exit 1
