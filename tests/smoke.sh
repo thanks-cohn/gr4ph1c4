@@ -4,11 +4,11 @@ set -euo pipefail
 rm -rf dist
 npm run build >/tmp/gr4ph1c4-build.log
 node dist/main.js doctor >/tmp/gr4ph1c4-doctor.log
-if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo, emit-sine-stream, sine-demo' /tmp/gr4ph1c4-doctor.log; then
+if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo, emit-sine-stream, sine-demo, chartjs-sine-demo' /tmp/gr4ph1c4-doctor.log; then
   echo "smoke failed: doctor did not report the exact real CLI command list" >&2
   exit 1
 fi
-for fake in sql csv server chartjs d3 plugin future; do
+for fake in sql csv server d3 plugin future; do
   if grep -Fiq "$fake" /tmp/gr4ph1c4-doctor.log; then
     echo "smoke failed: doctor claimed fake command or future capability $fake" >&2
     exit 1
@@ -309,5 +309,124 @@ for expected in "error: GR4_STREAM_INVALID_RECORD" "where:" "what:" "why:" "next
   fi
 done
 
-printf '%s\n' 'PASS GR4PH1C4 V0 PASS 4 smoke'
+node dist/main.js chartjs-sine-demo > dist/chartjs-sine-demo.stdout.log
+for output_file in dist/chartjs-sine-demo/index.html dist/chartjs-sine-demo/chart.umd.js dist/chartjs-sine-demo/chartjs-sine-state.json dist/chartjs-sine-demo/proof.log; do
+  if [ ! -f "$output_file" ]; then
+    echo "smoke failed: chartjs sine demo output missing $output_file" >&2
+    exit 1
+  fi
+done
+
+for expected in \
+  "Gr4ph1c4 Chart.js Live Sine Demo" \
+  "Renderer: Chart.js local bundle" \
+  'data-demo="chartjs-live-sine"' \
+  'data-renderer="chart.js"' \
+  'data-stream-source="generated-browser-sine"' \
+  'data-chart-type="line"' \
+  'data-visible-points="64"' \
+  'data-amplitude="1"' \
+  'data-frequency="1"' \
+  'data-phase-speed="1"' \
+  'data-y-offset="0"' \
+  'data-chart-width="1100"' \
+  'data-chart-height="520"' \
+  'data-selected-color="#22d3ee"' \
+  '<script src="./chart.umd.js"></script>' \
+  'new Chart(' \
+  'requestAnimationFrame' \
+  'Amplitude' \
+  'Frequency' \
+  'Phase Speed' \
+  'Y Offset' \
+  'Visible Points' \
+  'Chart Type' \
+  'Line Tension' \
+  'Point Radius' \
+  'Chart Width' \
+  'Chart Height' \
+  'Color Picker' \
+  'Pause' \
+  'Reset' \
+  'Capture Moment' \
+  '<canvas'; do
+  if ! grep -Fq "$expected" dist/chartjs-sine-demo/index.html; then
+    echo "smoke failed: chartjs sine index.html missing $expected" >&2
+    exit 1
+  fi
+done
+
+for forbidden in cdn.jsdelivr unpkg.com https:// http://; do
+  if grep -Fq "$forbidden" dist/chartjs-sine-demo/index.html; then
+    echo "smoke failed: chartjs sine index.html contains forbidden remote evidence $forbidden" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fiq 'Chart.js' dist/chartjs-sine-demo/chart.umd.js && ! grep -Fiq 'chart.js' dist/chartjs-sine-demo/chart.umd.js; then
+  echo "smoke failed: chartjs bundle missing Chart.js evidence" >&2
+  exit 1
+fi
+
+for expected in \
+  '"demoName": "chartjs-live-sine"' \
+  '"renderer": "chart.js"' \
+  '"streamSource": "generated-browser-sine"' \
+  '"chartType": "line"' \
+  '"visiblePoints": 64' \
+  '"amplitude": 1' \
+  '"frequency": 1' \
+  '"phaseSpeed": 1' \
+  '"yOffset": 0' \
+  '"lineTension": 0.35' \
+  '"pointRadius": 2' \
+  '"chartWidth": 1100' \
+  '"chartHeight": 520' \
+  '"selectedColor": "#22d3ee"' \
+  '"localBundle": "chart.umd.js"'; do
+  if ! grep -Fq "$expected" dist/chartjs-sine-demo/chartjs-sine-state.json; then
+    echo "smoke failed: chartjs-sine-state.json missing $expected" >&2
+    exit 1
+  fi
+done
+
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/chartjs-sine-demo/chartjs-sine-state.json', 'utf8'));
+const expected = {
+  demoName: 'chartjs-live-sine', renderer: 'chart.js', streamSource: 'generated-browser-sine', chartType: 'line',
+  visiblePoints: 64, amplitude: 1, frequency: 1, phaseSpeed: 1, yOffset: 0, lineTension: 0.35,
+  pointRadius: 2, chartWidth: 1100, chartHeight: 520, selectedColor: '#22d3ee', localBundle: 'chart.umd.js'
+};
+for (const [key, value] of Object.entries(expected)) {
+  if (state[key] !== value) throw new Error(`${key} was ${state[key]} not ${value}`);
+}
+NODE
+
+for expected in \
+  "demo: chartjs-live-sine" \
+  "renderer: chart.js" \
+  "chart bundle: dist/chartjs-sine-demo/chart.umd.js" \
+  "html: dist/chartjs-sine-demo/index.html" \
+  "state: dist/chartjs-sine-demo/chartjs-sine-state.json" \
+  "controls: amplitude, frequency, phase-speed, y-offset, visible-points, chart-type, line-tension, point-radius, chart-width, chart-height, color-picker, pause-resume, reset, capture-moment" \
+  "runtime: local browser file" \
+  "network required: false" \
+  "PASS GR4PH1C4 V0 PASS 5 chartjs live sine proof"; do
+  if ! grep -Fq "$expected" dist/chartjs-sine-demo/proof.log; then
+    echo "smoke failed: chartjs proof.log missing $expected" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$expected" dist/chartjs-sine-demo.stdout.log; then
+    echo "smoke failed: chartjs stdout proof missing $expected" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq 'chartjs-sine-demo' /tmp/gr4ph1c4-doctor.log; then
+  echo "smoke failed: doctor output missing chartjs-sine-demo" >&2
+  exit 1
+fi
+
+printf '%s\n' 'PASS GR4PH1C4 V0 PASS 5 smoke' 
 
