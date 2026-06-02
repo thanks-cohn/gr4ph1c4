@@ -11,6 +11,7 @@ const pathModule = require("node:path");
 
 import { formatDoctor, runDoctor } from "./doctor";
 import { formatUnknownError, G4Error } from "./errors";
+import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
 
@@ -30,6 +31,7 @@ function usage(): string {
   return [
     "usage:",
     "  node dist/main.js doctor",
+    "  node dist/main.js rollback-demo",
     "  node dist/main.js parse <file.g4> --json",
     "  node dist/main.js render <file.g4> --out <directory>",
   ].join("\n");
@@ -74,8 +76,101 @@ async function readAndParse(filePath: string) {
   return parseG4(source);
 }
 
+
+function assertProof(condition: boolean, what: string): void {
+  if (!condition) {
+    throw new G4Error({
+      code: "GR4_E_ROLLBACK_PROOF_FAILED",
+      where: "rollback-demo",
+      what,
+      why: "The PASS 2 rollback proof only passes when each inspected state matches real rendered evidence.",
+      next: "Inspect examples/rollback-demo.g4, src/module-registry.ts, and the rendered output in dist/rollback-demo/index.html.",
+    });
+  }
+}
+
+function proofLine(label: string, value: string): void {
+  console.log(`${label}: ${value}`);
+}
+
+async function runRollbackDemo(): Promise<void> {
+  const inputPath = join("examples", "rollback-demo.g4");
+  const source = await readFile(inputPath, "utf8");
+  const document = parseG4(source);
+  const registry = new ModuleRegistry();
+  const originalChart = document.screen.chart;
+
+  const registered = registry.register("revenue", originalChart);
+  const fetched = registry.get("revenue");
+  assertProof(fetched.name === "revenue", "registry get(\"revenue\") returned the registered module name");
+  assertProof(fetched === registered, "registry stores and retrieves the same registered revenue module");
+
+  const originalAstTypeAtStart = originalChart.type;
+  proofLine("input", inputPath);
+  proofLine("registered module", fetched.name);
+  proofLine("original chart type", originalAstTypeAtStart);
+  proofLine("registry working type before edit", fetched.working.type);
+
+  const beforeResendSvg = fetched.rendered;
+  assertProof(beforeResendSvg.includes('data-rendered-chart-type="bars"'), "before resend output contains bars SVG evidence");
+  assertProof(originalAstTypeAtStart === "bars", "original AST starts as bars");
+
+  registry.edit("revenue", { type: "line" });
+  const edited = registry.get("revenue").working;
+  proofLine("edited chart type", edited.type);
+  proofLine("original AST type after edit", originalChart.type);
+  assertProof(edited.type === "line", "edit changed working copy revenue type to line");
+  assertProof(originalChart.type === "bars", "edit did not mutate original AST");
+
+  const afterResendSvg = registry.resend("revenue");
+  const updatedDocument = {
+    ...document,
+    screen: {
+      ...document.screen,
+      chart: registry.get("revenue").working,
+    },
+  };
+  const updatedHtml = renderHtml(updatedDocument);
+  await mkdir(join("dist", "rollback-demo"), { recursive: true });
+  await writeFile(join("dist", "rollback-demo", "index.html"), updatedHtml, "utf8");
+
+  proofLine("resend rendered chart type", afterResendSvg.includes('data-rendered-chart-type="line"') ? "line" : "unknown");
+  proofLine("rendered output", join("dist", "rollback-demo", "index.html"));
+  assertProof(afterResendSvg.includes('data-rendered-chart-type="line"'), "after resend output contains line SVG evidence");
+  assertProof(!afterResendSvg.includes('data-rendered-chart-type="bars"'), "after resend output no longer contains bars SVG evidence");
+  assertProof(beforeResendSvg !== afterResendSvg, "resend changed rendered SVG output after edit");
+  assertProof(updatedHtml.includes('data-chart-type="line"'), "updated HTML records edited chart type line");
+  assertProof(updatedHtml.includes('data-rendered-chart-type="line"'), "updated HTML contains line SVG evidence");
+  assertProof(originalChart.type === "bars", "resend did not mutate original AST");
+
+  registry.rollback("revenue");
+  const rolledBack = registry.get("revenue").working;
+  proofLine("rollback chart type", rolledBack.type);
+  proofLine("original AST type after rollback", originalChart.type);
+  assertProof(rolledBack.type === "bars", "rollback restored working copy to first registered state bars");
+  assertProof(registry.get("revenue").rendered.includes('data-rendered-chart-type="bars"'), "rollback restored bars SVG evidence");
+  assertProof(originalChart.type === "bars", "rollback did not mutate original AST");
+  assertProof(originalAstTypeAtStart === originalChart.type, "original AST remained bars for the entire proof");
+
+  console.log("PASS GR4PH1C4 V0 PASS 2 rollback proof");
+}
+
 async function main(argv: string[]): Promise<void> {
   const [command, filePath, ...rest] = argv;
+
+  if (command === "rollback-demo") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_E_ROLLBACK_ARGS",
+        where: "command line",
+        what: "rollback-demo received extra arguments",
+        why: "The PASS 2 rollback proof loads examples/rollback-demo.g4 directly.",
+        next: "Run `node dist/main.js rollback-demo` with no file path.",
+      });
+    }
+    await runRollbackDemo();
+    return;
+  }
 
   if (command === "doctor") {
     if (filePath !== undefined) {
@@ -140,7 +235,7 @@ async function main(argv: string[]): Promise<void> {
     code: "GR4_E_UNKNOWN_COMMAND",
     where: "command line",
     what: command ? `unknown command ${command}` : "missing command",
-    why: "PASS 1 supports doctor, parse, and render.",
+    why: "PASS 2 supports doctor, rollback-demo, parse, and render.",
     next: usage(),
   });
 }

@@ -19,7 +19,7 @@ if [ ! -f dist/site/index.html ]; then
   exit 1
 fi
 
-for expected in "<html" "<svg" "Revenue Continues To Rise" "Quarterly Revenue" "Q4 produced the strongest quarter of the year." Q1 Q2 Q3 Q4; do
+for expected in "<html" "<svg" 'data-rendered-chart-type="bars"' "Revenue Continues To Rise" "Quarterly Revenue" "Q4 produced the strongest quarter of the year." Q1 Q2 Q3 Q4; do
   if ! grep -Fq "$expected" dist/site/index.html; then
     echo "smoke failed: HTML missing $expected" >&2
     exit 1
@@ -38,4 +38,56 @@ for expected in "error: GR4_E_" "where:" "what:" "why:" "next:"; do
   fi
 done
 
-printf '%s\n' 'PASS GR4PH1C4 V0 PASS 1 smoke'
+node dist/main.js parse examples/rollback-demo.g4 --json > dist/rollback-demo.ast.json
+for expected in rollback_demo "Rollback Demo" revenue "Revenue" '"type": "bars"' Jan Feb Mar; do
+  if ! grep -Fq "$expected" dist/rollback-demo.ast.json; then
+    echo "smoke failed: rollback-demo AST missing $expected" >&2
+    exit 1
+  fi
+done
+
+node dist/main.js rollback-demo > dist/rollback-demo.proof.log
+for expected in \
+  "input: examples/rollback-demo.g4" \
+  "registered module: revenue" \
+  "original chart type: bars" \
+  "registry working type before edit: bars" \
+  "edited chart type: line" \
+  "original AST type after edit: bars" \
+  "resend rendered chart type: line" \
+  "rendered output: dist/rollback-demo/index.html" \
+  "rollback chart type: bars" \
+  "original AST type after rollback: bars" \
+  "PASS GR4PH1C4 V0 PASS 2 rollback proof"; do
+  if ! grep -Fq "$expected" dist/rollback-demo.proof.log; then
+    echo "smoke failed: rollback proof log missing $expected" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq 'data-chart="revenue"' dist/rollback-demo/index.html; then
+  echo "smoke failed: rollback rendered HTML missing registered chart revenue" >&2
+  exit 1
+fi
+if ! grep -Fq 'data-chart-type="line"' dist/rollback-demo/index.html; then
+  echo "smoke failed: rollback rendered HTML missing edited line chart type" >&2
+  exit 1
+fi
+if ! grep -Fq 'data-rendered-chart-type="line"' dist/rollback-demo/index.html; then
+  echo "smoke failed: rollback rendered HTML missing line SVG evidence" >&2
+  exit 1
+fi
+if grep -Fq 'data-rendered-chart-type="bars"' dist/rollback-demo/index.html; then
+  echo "smoke failed: rollback rendered HTML still contains bars SVG evidence after resend" >&2
+  exit 1
+fi
+if ! grep -Fq '<polyline points=' dist/rollback-demo/index.html; then
+  echo "smoke failed: rollback rendered HTML missing line polyline evidence" >&2
+  exit 1
+fi
+if ! grep -Fq '"type": "bars"' dist/rollback-demo.ast.json; then
+  echo "smoke failed: original rollback-demo AST is no longer bars" >&2
+  exit 1
+fi
+
+printf '%s\n' 'PASS GR4PH1C4 V0 PASS 2 smoke'
