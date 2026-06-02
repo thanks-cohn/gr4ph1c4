@@ -4,7 +4,7 @@ set -euo pipefail
 rm -rf dist
 npm run build >/tmp/gr4ph1c4-build.log
 node dist/main.js doctor >/tmp/gr4ph1c4-doctor.log
-if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo' /tmp/gr4ph1c4-doctor.log; then
+if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo' /tmp/gr4ph1c4-doctor.log; then
   echo "smoke failed: doctor did not report the exact real CLI command list" >&2
   exit 1
 fi
@@ -106,4 +106,68 @@ if grep -Fq '"type": "line"' dist/rollback-demo.after.ast.json; then
   exit 1
 fi
 
-printf '%s\n' 'PASS GR4PH1C4 V0 PASS 2 smoke'
+node dist/main.js snapshot-demo > dist/snapshot-demo.proof.stdout.log
+snapshot_dir=dist/snapshots/pass-3-demo
+for snapshot_file in \
+  "$snapshot_dir/source.g4" \
+  "$snapshot_dir/working-state.json" \
+  "$snapshot_dir/index.html" \
+  "$snapshot_dir/proof.log" \
+  "$snapshot_dir/manifest.json"; do
+  if [ ! -f "$snapshot_file" ]; then
+    echo "smoke failed: snapshot file missing $snapshot_file" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq 'screen rollback_demo "Rollback Demo"' "$snapshot_dir/source.g4"; then
+  echo "smoke failed: snapshot source.g4 missing rollback demo source evidence" >&2
+  exit 1
+fi
+if ! grep -Fq '"type": "line"' "$snapshot_dir/working-state.json"; then
+  echo "smoke failed: snapshot working-state.json missing edited line type evidence" >&2
+  exit 1
+fi
+for expected in \
+  '"chartName": "revenue"' \
+  '"originalChartType": "bars"' \
+  '"workingChartType": "line"' \
+  '"originalAstUnchanged": true'; do
+  if ! grep -Fq "$expected" "$snapshot_dir/manifest.json"; then
+    echo "smoke failed: snapshot manifest.json missing $expected" >&2
+    exit 1
+  fi
+done
+for expected in \
+  'data-chart="revenue"' \
+  'data-chart-type="line"' \
+  'data-rendered-chart-type="line"' \
+  '<polyline points='; do
+  if ! grep -Fq "$expected" "$snapshot_dir/index.html"; then
+    echo "smoke failed: snapshot index.html missing $expected" >&2
+    exit 1
+  fi
+done
+for expected in \
+  "input: examples/rollback-demo.g4" \
+  "registered module: revenue" \
+  "original chart type: bars" \
+  "edited working chart type: line" \
+  "original AST type after edit: bars" \
+  "snapshot written: dist/snapshots/pass-3-demo" \
+  "manifest written" \
+  "working state written" \
+  "rendered output written" \
+  "source copied" \
+  "PASS GR4PH1C4 V0 PASS 3 snapshot proof"; do
+  if ! grep -Fq "$expected" "$snapshot_dir/proof.log"; then
+    echo "smoke failed: snapshot proof.log missing $expected" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$expected" dist/snapshot-demo.proof.stdout.log; then
+    echo "smoke failed: snapshot stdout proof missing $expected" >&2
+    exit 1
+  fi
+done
+
+printf '%s\n' 'PASS GR4PH1C4 V0 PASS 3 smoke'
