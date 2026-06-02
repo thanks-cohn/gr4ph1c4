@@ -4,6 +4,16 @@ set -euo pipefail
 rm -rf dist
 npm run build >/tmp/gr4ph1c4-build.log
 node dist/main.js doctor >/tmp/gr4ph1c4-doctor.log
+if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo' /tmp/gr4ph1c4-doctor.log; then
+  echo "smoke failed: doctor did not report the exact real CLI command list" >&2
+  exit 1
+fi
+for fake in sql csv server chartjs d3 plugin future; do
+  if grep -Fiq "$fake" /tmp/gr4ph1c4-doctor.log; then
+    echo "smoke failed: doctor claimed fake command or future capability $fake" >&2
+    exit 1
+  fi
+done
 
 node dist/main.js parse examples/classroom-report.g4 --json > dist/classroom-report.ast.json
 for expected in quarterly_report "Quarterly Report" revenue "Quarterly Revenue" Q4; do
@@ -49,6 +59,7 @@ done
 node dist/main.js rollback-demo > dist/rollback-demo.proof.log
 for expected in \
   "input: examples/rollback-demo.g4" \
+  "missing module lookup rejected: missing_revenue" \
   "registered module: revenue" \
   "original chart type: bars" \
   "registry working type before edit: bars" \
@@ -85,8 +96,13 @@ if ! grep -Fq '<polyline points=' dist/rollback-demo/index.html; then
   echo "smoke failed: rollback rendered HTML missing line polyline evidence" >&2
   exit 1
 fi
-if ! grep -Fq '"type": "bars"' dist/rollback-demo.ast.json; then
-  echo "smoke failed: original rollback-demo AST is no longer bars" >&2
+node dist/main.js parse examples/rollback-demo.g4 --json > dist/rollback-demo.after.ast.json
+if ! grep -Fq '"type": "bars"' dist/rollback-demo.after.ast.json; then
+  echo "smoke failed: original rollback-demo AST is no longer bars after rollback-demo ran" >&2
+  exit 1
+fi
+if grep -Fq '"type": "line"' dist/rollback-demo.after.ast.json; then
+  echo "smoke failed: original rollback-demo AST mutated to line after rollback-demo ran" >&2
   exit 1
 fi
 

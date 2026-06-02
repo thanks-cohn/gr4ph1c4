@@ -1,3 +1,5 @@
+import { formatCliCommandList } from "./commands";
+
 export interface DoctorResult {
   ok: true;
   checks: string[];
@@ -10,7 +12,7 @@ export function runDoctor(): DoctorResult {
       "parser module loaded",
       "HTML renderer module loaded",
       "SVG bars chart renderer loaded",
-      "CLI commands available: doctor, parse, render",
+      `CLI commands available: ${formatCliCommandList()}`,
     ],
   };
 }
