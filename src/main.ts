@@ -15,6 +15,7 @@ import { formatUnknownError, G4Error } from "./errors";
 import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
+import { emitSineStream, runSineDemo } from "./sine-demo";
 
 const { mkdir, readFile, writeFile } = fsPromises as {
   mkdir: (path: string, options: { recursive: boolean }) => Promise<void>;
@@ -36,6 +37,8 @@ function usage(): string {
     "  node dist/main.js render <file.g4> --out <directory>",
     "  node dist/main.js rollback-demo",
     "  node dist/main.js snapshot-demo",
+    "  node dist/main.js emit-sine-stream",
+    "  node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo",
   ].join("\n");
 }
 
@@ -248,6 +251,25 @@ async function runSnapshotDemo(): Promise<void> {
 
 async function main(argv: string[]): Promise<void> {
   const [command, filePath, ...rest] = argv;
+
+  if (command === "emit-sine-stream") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_STREAM_EMIT_ARGS",
+        where: "command line",
+        what: "emit-sine-stream received extra arguments",
+        why: "The deterministic PASS 4 sine emitter writes exactly 120 JSONL records to stdout and accepts no flags.",
+        next: "Run `node dist/main.js emit-sine-stream` with no arguments.",
+      });
+    }
+    emitSineStream();
+    return;
+  }
+
+  if (command === "sine-demo") {
+    await runSineDemo(argv.slice(1));
+    return;
+  }
 
   if (command === "rollback-demo") {
     if (filePath !== undefined) {
