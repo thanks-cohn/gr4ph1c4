@@ -35,6 +35,7 @@ function usage(): string {
     "  node dist/main.js parse <file.g4> --json",
     "  node dist/main.js render <file.g4> --out <directory>",
     "  node dist/main.js rollback-demo",
+    "  node dist/main.js snapshot-demo",
   ].join("\n");
 }
 
@@ -81,11 +82,11 @@ async function readAndParse(filePath: string) {
 function assertProof(condition: boolean, what: string): void {
   if (!condition) {
     throw new G4Error({
-      code: "GR4_E_ROLLBACK_PROOF_FAILED",
-      where: "rollback-demo",
+      code: "GR4_E_PROOF_FAILED",
+      where: "demo proof",
       what,
-      why: "The PASS 2 rollback proof only passes when each inspected state matches real rendered evidence.",
-      next: "Inspect examples/rollback-demo.g4, src/module-registry.ts, and the rendered output in dist/rollback-demo/index.html.",
+      why: "A V0 proof only passes when each inspected state matches real rendered evidence.",
+      next: "Inspect examples/rollback-demo.g4, src/module-registry.ts, and the generated files under dist/.",
     });
   }
 }
@@ -165,6 +166,86 @@ async function runRollbackDemo(): Promise<void> {
   console.log("PASS GR4PH1C4 V0 PASS 2 rollback proof");
 }
 
+function proofTextLine(lines: string[], label: string, value?: string): void {
+  lines.push(value === undefined ? label : `${label}: ${value}`);
+}
+
+async function runSnapshotDemo(): Promise<void> {
+  const inputPath = join("examples", "rollback-demo.g4");
+  const snapshotName = "pass-3-demo";
+  const snapshotPath = join("dist", "snapshots", snapshotName);
+  const sourcePath = join(snapshotPath, "source.g4");
+  const workingStatePath = join(snapshotPath, "working-state.json");
+  const renderedPath = join(snapshotPath, "index.html");
+  const proofPath = join(snapshotPath, "proof.log");
+  const manifestPath = join(snapshotPath, "manifest.json");
+
+  const source = await readFile(inputPath, "utf8");
+  const document = parseG4(source);
+  const registry = new ModuleRegistry();
+  const originalChart = document.screen.chart;
+  const registered = registry.register("revenue", originalChart);
+  const originalChartType = originalChart.type;
+
+  assertProof(registered.name === "revenue", "snapshot registered the revenue module");
+  assertProof(registered.working.type === "bars", "snapshot working copy starts as bars");
+
+  registry.edit("revenue", { type: "line" });
+  const workingChart = registry.get("revenue").working;
+  assertProof(workingChart.type === "line", "snapshot edit changed working copy to line");
+  assertProof(originalChart.type === "bars", "snapshot edit did not mutate original AST");
+
+  const renderedSvg = registry.resend("revenue");
+  assertProof(renderedSvg.includes('data-rendered-chart-type="line"'), "snapshot resend rendered line SVG evidence");
+  assertProof(renderedSvg.includes("<polyline points="), "snapshot resend rendered polyline evidence");
+
+  const workingDocument = {
+    ...document,
+    screen: {
+      ...document.screen,
+      chart: workingChart,
+    },
+  };
+  const html = renderHtml(workingDocument);
+  assertProof(html.includes('data-chart="revenue"'), "snapshot HTML identifies revenue chart");
+  assertProof(html.includes('data-chart-type="line"'), "snapshot HTML records working chart type line");
+  assertProof(html.includes('data-rendered-chart-type="line"'), "snapshot HTML contains rendered line evidence");
+  assertProof(html.includes("<polyline points="), "snapshot HTML contains polyline evidence");
+  assertProof(originalChartType === "bars" && originalChart.type === originalChartType, "snapshot original AST stayed bars");
+
+  const manifest = {
+    snapshotName,
+    sourcePath,
+    renderedPath,
+    chartName: registered.name,
+    originalChartType,
+    workingChartType: workingChart.type,
+    originalAstUnchanged: originalChart.type === originalChartType,
+  };
+
+  await mkdir(snapshotPath, { recursive: true });
+  await writeFile(sourcePath, source, "utf8");
+  await writeFile(workingStatePath, JSON.stringify(workingChart, null, 2), "utf8");
+  await writeFile(renderedPath, html, "utf8");
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+
+  const proofLines: string[] = [];
+  proofTextLine(proofLines, "input", inputPath);
+  proofTextLine(proofLines, "registered module", registered.name);
+  proofTextLine(proofLines, "original chart type", originalChartType);
+  proofTextLine(proofLines, "edited working chart type", workingChart.type);
+  proofTextLine(proofLines, "original AST type after edit", originalChart.type);
+  proofTextLine(proofLines, "snapshot written", snapshotPath);
+  proofTextLine(proofLines, "manifest written");
+  proofTextLine(proofLines, "working state written");
+  proofTextLine(proofLines, "rendered output written");
+  proofTextLine(proofLines, "source copied");
+  proofTextLine(proofLines, "PASS GR4PH1C4 V0 PASS 3 snapshot proof");
+
+  await writeFile(proofPath, `${proofLines.join("\n")}\n`, "utf8");
+  console.log(proofLines.join("\n"));
+}
+
 async function main(argv: string[]): Promise<void> {
   const [command, filePath, ...rest] = argv;
 
@@ -179,6 +260,20 @@ async function main(argv: string[]): Promise<void> {
       });
     }
     await runRollbackDemo();
+    return;
+  }
+
+  if (command === "snapshot-demo") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_E_SNAPSHOT_ARGS",
+        where: "command line",
+        what: "snapshot-demo received extra arguments",
+        why: "The PASS 3 snapshot proof loads examples/rollback-demo.g4 directly.",
+        next: "Run `node dist/main.js snapshot-demo` with no file path.",
+      });
+    }
+    await runSnapshotDemo();
     return;
   }
 
@@ -245,7 +340,7 @@ async function main(argv: string[]): Promise<void> {
     code: "GR4_E_UNKNOWN_COMMAND",
     where: "command line",
     what: command ? `unknown command ${command}` : "missing command",
-    why: `PASS 2 supports ${formatCliCommandList()}.`,
+    why: `V0 supports ${formatCliCommandList()}.`,
     next: usage(),
   });
 }
