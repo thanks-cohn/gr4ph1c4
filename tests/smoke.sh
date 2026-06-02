@@ -4,7 +4,7 @@ set -euo pipefail
 rm -rf dist
 npm run build >/tmp/gr4ph1c4-build.log
 node dist/main.js doctor >/tmp/gr4ph1c4-doctor.log
-if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo, emit-sine-stream, sine-demo, chartjs-sine-demo' /tmp/gr4ph1c4-doctor.log; then
+if ! grep -Fxq -- '- CLI commands available: doctor, parse, render, rollback-demo, snapshot-demo, emit-sine-stream, sine-demo, chartjs-sine-demo, three-ocean-points-demo' /tmp/gr4ph1c4-doctor.log; then
   echo "smoke failed: doctor did not report the exact real CLI command list" >&2
   exit 1
 fi
@@ -428,5 +428,120 @@ if ! grep -Fq 'chartjs-sine-demo' /tmp/gr4ph1c4-doctor.log; then
   exit 1
 fi
 
-printf '%s\n' 'PASS GR4PH1C4 V0 PASS 5 smoke' 
+
+if ! grep -Fq 'three-ocean-points-demo' /tmp/gr4ph1c4-doctor.log; then
+  echo "smoke failed: doctor output missing three-ocean-points-demo" >&2
+  exit 1
+fi
+
+node dist/main.js three-ocean-points-demo > dist/three-ocean-points-demo.stdout.log
+for output_file in \
+  dist/three-ocean-points-demo/index.html \
+  dist/three-ocean-points-demo/three-ocean-state.json \
+  dist/three-ocean-points-demo/proof.log \
+  dist/three-ocean-points-demo/vendor/three.min.js; do
+  if [ ! -f "$output_file" ]; then
+    echo "smoke failed: three ocean output missing $output_file" >&2
+    exit 1
+  fi
+done
+
+for expected in \
+  "Gr4ph1c4 Three.js Ocean Points Demo" \
+  'data-demo="three-ocean-points"' \
+  'data-renderer="threejs"' \
+  'data-scene="ocean-points"' \
+  'data-wave-height="normal"' \
+  'data-point-density="medium"' \
+  'data-motion="normal"' \
+  'data-color-mode="blue"' \
+  "Wave Height" \
+  "Point Density" \
+  "Motion" \
+  "Color Mode" \
+  "Capture Moment" \
+  "renderer: Three.js" \
+  "deterministic wave field" \
+  "local browser demo" \
+  "server required" \
+  "./vendor/three.min.js" \
+  "new THREE.WebGLRenderer" \
+  "new THREE.PointsMaterial" \
+  "new THREE.PerspectiveCamera" \
+  "requestAnimationFrame" \
+  "waveY(point.x, point.z" \
+  "currentTimeSample"; do
+  if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
+    echo "smoke failed: three ocean index.html missing $expected" >&2
+    exit 1
+  fi
+done
+
+for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB; do
+  if grep -Fq "$forbidden" dist/three-ocean-points-demo/index.html; then
+    echo "smoke failed: three ocean index.html contains forbidden remote or fake ingestion evidence $forbidden" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fiq 'Three.js' dist/three-ocean-points-demo/vendor/three.min.js || ! grep -Fq 'global.THREE' dist/three-ocean-points-demo/vendor/three.min.js; then
+  echo "smoke failed: three vendor bundle missing Three.js global evidence" >&2
+  exit 1
+fi
+
+for expected in \
+  '"demoName": "three-ocean-points"' \
+  '"renderer": "threejs"' \
+  '"sceneName": "ocean-points"' \
+  '"waveHeight": "normal"' \
+  '"pointDensity": "medium"' \
+  '"motion": "normal"' \
+  '"colorMode": "blue"' \
+  '"serverRequired": false' \
+  '"source": "deterministic-wave-field"' \
+  '"localBundle": "vendor/three.min.js"'; do
+  if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
+    echo "smoke failed: three-ocean-state.json missing $expected" >&2
+    exit 1
+  fi
+done
+
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+const expected = {
+  demoName: 'three-ocean-points', renderer: 'threejs', sceneName: 'ocean-points',
+  waveHeight: 'normal', pointDensity: 'medium', motion: 'normal', colorMode: 'blue',
+  serverRequired: false, source: 'deterministic-wave-field', localBundle: 'vendor/three.min.js'
+};
+for (const [key, value] of Object.entries(expected)) {
+  if (state[key] !== value) throw new Error(`${key} was ${state[key]} not ${value}`);
+}
+NODE
+
+for expected in \
+  "input: deterministic wave field" \
+  "demo: three-ocean-points" \
+  "renderer: threejs" \
+  "scene: ocean-points" \
+  "wave height: normal" \
+  "point density: medium" \
+  "motion: normal" \
+  "color mode: blue" \
+  "server required: no" \
+  "output: dist/three-ocean-points-demo/index.html" \
+  "state: dist/three-ocean-points-demo/three-ocean-state.json" \
+  "three bundle: dist/three-ocean-points-demo/vendor/three.min.js" \
+  "PASS GR4PH1C4 V0 PASS 6 three.js ocean points proof"; do
+  if ! grep -Fq "$expected" dist/three-ocean-points-demo/proof.log; then
+    echo "smoke failed: three proof.log missing $expected" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$expected" dist/three-ocean-points-demo.stdout.log; then
+    echo "smoke failed: three stdout proof missing $expected" >&2
+    exit 1
+  fi
+done
+
+printf '%s\n' 'PASS GR4PH1C4 V0 PASS 6 smoke' 
 

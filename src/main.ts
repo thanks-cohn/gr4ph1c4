@@ -16,6 +16,7 @@ import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
 import { runChartJsSineDemo } from "./chartjs-sine-demo";
+import { runThreeOceanPointsDemo } from "./three-ocean-points-demo";
 import { emitSineStream, runSineDemo } from "./sine-demo";
 
 const { mkdir, readFile, writeFile } = fsPromises as {
@@ -41,6 +42,7 @@ function usage(): string {
     "  node dist/main.js emit-sine-stream",
     "  node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo",
     "  node dist/main.js chartjs-sine-demo",
+    "  node dist/main.js three-ocean-points-demo",
   ].join("\n");
 }
 
@@ -284,6 +286,20 @@ async function main(argv: string[]): Promise<void> {
       });
     }
     await runChartJsSineDemo();
+    return;
+  }
+
+  if (command === "three-ocean-points-demo") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_THREE_OCEAN_ARGS",
+        where: "command line",
+        what: "three-ocean-points-demo received extra arguments",
+        why: "The PASS 6 Three.js ocean points demo writes a fixed local browser demo into dist/three-ocean-points-demo.",
+        next: "Run `node dist/main.js three-ocean-points-demo` with no arguments.",
+      });
+    }
+    await runThreeOceanPointsDemo();
     return;
   }
 
