@@ -1,0 +1,7 @@
+{
+  "name": "chart.js",
+  "version": "4.5.0-local",
+  "description": "Local Chart.js browser bundle for the Gr4ph1c4 PASS 5 demo.",
+  "main": "dist/chart.umd.js",
+  "license": "MIT"
+}

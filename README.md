@@ -96,3 +96,25 @@ Open:
 ```text
 dist/sine-demo/index.html
 ```
+
+## Chart.js Live Sine Demo
+
+This demo uses a local Chart.js bundle.
+It does not use a CDN.
+It opens as a local browser file.
+It shows a live sine wave that progresses over time.
+Controls reshape the chart in real time.
+Capture Moment writes the current state into an on-page JSON block.
+It does not require InfluxDB, WebSockets, or a live server.
+
+Generate the demo:
+
+```bash
+node dist/main.js chartjs-sine-demo
+```
+
+Open:
+
+```text
+dist/chartjs-sine-demo/index.html
+```

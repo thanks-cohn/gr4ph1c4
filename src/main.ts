@@ -15,6 +15,7 @@ import { formatUnknownError, G4Error } from "./errors";
 import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
+import { runChartJsSineDemo } from "./chartjs-sine-demo";
 import { emitSineStream, runSineDemo } from "./sine-demo";
 
 const { mkdir, readFile, writeFile } = fsPromises as {
@@ -39,6 +40,7 @@ function usage(): string {
     "  node dist/main.js snapshot-demo",
     "  node dist/main.js emit-sine-stream",
     "  node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo",
+    "  node dist/main.js chartjs-sine-demo",
   ].join("\n");
 }
 
@@ -268,6 +270,20 @@ async function main(argv: string[]): Promise<void> {
 
   if (command === "sine-demo") {
     await runSineDemo(argv.slice(1));
+    return;
+  }
+
+  if (command === "chartjs-sine-demo") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_CHARTJS_SINE_ARGS",
+        where: "command line",
+        what: "chartjs-sine-demo received extra arguments",
+        why: "The PASS 5 Chart.js sine demo writes a fixed local browser demo into dist/chartjs-sine-demo.",
+        next: "Run `node dist/main.js chartjs-sine-demo` with no arguments.",
+      });
+    }
+    await runChartJsSineDemo();
     return;
   }
 
