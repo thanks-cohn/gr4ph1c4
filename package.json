@@ -6,5 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "smoke": "bash tests/smoke.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
   }
 }
