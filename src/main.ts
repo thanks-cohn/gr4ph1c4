@@ -9,6 +9,7 @@ declare const process: { argv: string[]; exitCode?: number };
 const fsPromises = require("node:fs/promises");
 const pathModule = require("node:path");
 
+import { formatCliCommandList } from "./commands";
 import { formatDoctor, runDoctor } from "./doctor";
 import { formatUnknownError, G4Error } from "./errors";
 import { ModuleRegistry } from "./module-registry";
@@ -31,9 +32,9 @@ function usage(): string {
   return [
     "usage:",
     "  node dist/main.js doctor",
-    "  node dist/main.js rollback-demo",
     "  node dist/main.js parse <file.g4> --json",
     "  node dist/main.js render <file.g4> --out <directory>",
+    "  node dist/main.js rollback-demo",
   ].join("\n");
 }
 
@@ -106,6 +107,15 @@ async function runRollbackDemo(): Promise<void> {
   assertProof(fetched === registered, "registry stores and retrieves the same registered revenue module");
 
   const originalAstTypeAtStart = originalChart.type;
+  try {
+    registry.get("missing_revenue");
+    assertProof(false, "missing module lookup unexpectedly succeeded");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assertProof(message === "module not registered: missing_revenue", "missing module lookup returned an unclear error");
+    proofLine("missing module lookup rejected", "missing_revenue");
+  }
+
   proofLine("input", inputPath);
   proofLine("registered module", fetched.name);
   proofLine("original chart type", originalAstTypeAtStart);
@@ -235,7 +245,7 @@ async function main(argv: string[]): Promise<void> {
     code: "GR4_E_UNKNOWN_COMMAND",
     where: "command line",
     what: command ? `unknown command ${command}` : "missing command",
-    why: "PASS 2 supports doctor, rollback-demo, parse, and render.",
+    why: `PASS 2 supports ${formatCliCommandList()}.`,
     next: usage(),
   });
 }

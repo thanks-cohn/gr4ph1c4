@@ -4,11 +4,10 @@
   "private": true,
   "description": "V0 PASS 1 vertical slice for the Gr4ph1c4 visual command language.",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json",
     "smoke": "bash tests/smoke.sh"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
     "typescript": "^6.0.3"
   }
 }
