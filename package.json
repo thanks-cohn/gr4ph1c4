@@ -1,0 +1,10 @@
+{
+  "name": "gr4ph1c4",
+  "version": "0.0.1",
+  "private": true,
+  "description": "V0 PASS 1 vertical slice for the Gr4ph1c4 visual command language.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "smoke": "bash tests/smoke.sh"
+  }
+}
