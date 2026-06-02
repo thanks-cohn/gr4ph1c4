@@ -20,11 +20,14 @@ class Parser {
     this.expectWord("screen");
     const name = this.expectKind("word", "screen name").value;
     const title = this.expectKind("string", "screen title").value;
-    this.expectWord("format");
-    const format = this.expectKind("angle", "screen format such as :<projector>").value;
-    const hero = this.parseHero();
+    const format = this.parseOptionalSetting("format", "projector");
+    const hero = this.current().kind === "word" && this.current().value === "hero"
+      ? this.parseHero()
+      : { kind: "hero", text: title } as HeroNode;
     const chart = this.parseChart();
-    const note = this.parseNote();
+    const note = this.current().kind === "word" && this.current().value === "note"
+      ? this.parseNote()
+      : { kind: "note", text: "" } as NoteNode;
     return { kind: "screen", name, title, format, hero, chart, note };
   }
 
@@ -39,10 +42,10 @@ class Parser {
     const name = this.expectKind("word", "chart name").value;
     const title = this.expectKind("string", "chart title").value;
     const type = this.parseSetting("type");
-    const width = this.parseSetting("width");
-    const height = this.parseSetting("height");
-    const labels = this.parseSetting("labels");
-    const highlight = this.parseSetting("highlight");
+    const width = this.parseOptionalSetting("width", "full");
+    const height = this.parseOptionalSetting("height", "large");
+    const labels = this.parseOptionalSetting("labels", "large");
+    const highlight = this.parseOptionalSetting("highlight", "");
     this.expectWord("data");
     const data = this.parseDataRows();
 
@@ -50,12 +53,20 @@ class Parser {
       this.fail("GR4_E_EMPTY_DATA", this.current(), "at least one chart data row", "A bars chart cannot be rendered without numeric rows.", "Add rows like `Q1 120` under the data block.");
     }
 
-    return { kind: "chart", name, title, type, width, height, labels, highlight, data };
+    return { kind: "chart", name, title, type, width, height, labels, highlight: highlight || data[data.length - 1]!.label, data };
   }
 
   private parseSetting(name: string): string {
     this.expectWord(name);
     return this.expectKind("angle", `${name}:<value>`).value;
+  }
+
+  private parseOptionalSetting(name: string, defaultValue: string): string {
+    const token = this.current();
+    if (token.kind === "word" && token.value === name) {
+      return this.parseSetting(name);
+    }
+    return defaultValue;
   }
 
   private parseDataRows(): DataRow[] {
