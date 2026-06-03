@@ -1,5 +1,10 @@
 # Gr4ph1c4
 
+
+<p align="center">
+  <img src="sharx_mascot.png" alt="the_gr4ph1c4_mascot_sharx" width="720"> 
+</p>
+
 Gr4ph1c4 is a live visual command language. The long-term idea is to let a `.g4` command file describe visual screens that can become presentation-safe outputs.
 
 This repository is **V0 PASS 1 only**. It intentionally implements one real vertical slice:
