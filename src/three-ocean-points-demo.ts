@@ -1,5 +1,7 @@
 declare const require: (name: string) => unknown;
 
+import { defaultOceanColorControls, OceanColorControls } from "./color-controls";
+
 const fsPromises = require("node:fs/promises") as {
   mkdir: (path: string, options: { recursive: boolean }) => Promise<void>;
   writeFile: (path: string, data: string, encoding: "utf8") => Promise<void>;
@@ -50,6 +52,16 @@ const REQUIRED_PROOF_STRINGS = [
 ];
 
 const DEBUG_PANEL_FIELDS = [
+  "color_background",
+  "color_graph_lines",
+  "color_axis_numbers",
+  "color_points",
+  "color_data_lines",
+  "color_source_background",
+  "color_source_graph_lines",
+  "color_source_axis_numbers",
+  "color_source_points",
+  "color_source_data_lines",
   "renderer_ready",
   "canvas_width",
   "canvas_height",
@@ -84,7 +96,8 @@ const DEBUG_PANEL_FIELDS = [
   "last_error",
 ];
 
-const THREE_OCEAN_STATE = {
+function threeOceanState(colorControls: OceanColorControls) {
+  return {
   demo: "three-ocean-points",
   pass: "7A-visible-ocean-render-proof",
   title: "Commandable Ocean Field",
@@ -109,13 +122,25 @@ const THREE_OCEAN_STATE = {
   proof_state_global: "window.GR4PH1C4_OCEAN_PROOF",
   capture_function_global: "window.GR4PH1C4_CAPTURE_RENDER_PROOF",
   debug_panel_fields: DEBUG_PANEL_FIELDS,
+  color_background: colorControls.background,
+  color_graph_lines: colorControls.graphLines,
+  color_axis_numbers: colorControls.axisNumbers,
+  color_points: colorControls.points,
+  color_data_lines: colorControls.dataLines,
+  color_source_background: colorControls.sourceBackground,
+  color_source_graph_lines: colorControls.sourceGraphLines,
+  color_source_axis_numbers: colorControls.sourceAxisNumbers,
+  color_source_points: colorControls.sourcePoints,
+  color_source_data_lines: colorControls.sourceDataLines,
+  last_error: colorControls.lastError,
   required_commands: [
     "node dist/main.js three-ocean-points-demo",
     "node dist/three-ocean-points-demo/smoke-test.js",
     "node dist/three-ocean-points-demo/browser-render-smoke-test.js",
     "xdg-open dist/three-ocean-points-demo/index.html",
   ],
-};
+  };
+}
 
 function proofLines(): string[] {
   return [
@@ -141,7 +166,13 @@ function renderDebugRows(): string {
   return DEBUG_PANEL_FIELDS.map((field) => `      <div class="debug-row"><span class="debug-key">${field}</span><span class="debug-value" id="debug-${field}">0</span></div>`).join("\n");
 }
 
-function renderThreeOceanHtml(): string {
+function hexToRgb(color: string): [number, number, number] {
+  return [Number.parseInt(color.slice(1, 3), 16), Number.parseInt(color.slice(3, 5), 16), Number.parseInt(color.slice(5, 7), 16)];
+}
+
+
+function renderThreeOceanHtml(colorControls: OceanColorControls): string {
+  const backgroundRgb = hexToRgb(colorControls.background);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -150,30 +181,35 @@ function renderThreeOceanHtml(): string {
   <title>Commandable Ocean Field</title>
   <style>
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
-    body { background: #081426; color: #e0f7ff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    #app { position: fixed; inset: 0; width: 100%; height: 100%; background: #081426; }
+    body { background: ${colorControls.background}; color: ${colorControls.axisNumbers}; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    #app { position: fixed; inset: 0; width: 100%; height: 100%; background: ${colorControls.background}; }
     #ocean-container { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 320px; min-height: 240px; touch-action: none; user-select: none; }
     canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; user-select: none; cursor: grab; }
     canvas:active { cursor: grabbing; }
-    #debug-panel { position: fixed; top: 14px; left: 14px; z-index: 10; min-width: 340px; max-width: min(520px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto; padding: 14px 16px; border: 1px solid rgba(125, 249, 255, 0.8); border-radius: 14px; background: rgba(2, 8, 23, 0.78); box-shadow: 0 0 28px rgba(34, 211, 238, 0.3); color: #dffcff; pointer-events: auto; }
+    #debug-panel { position: fixed; top: 14px; left: 14px; z-index: 10; min-width: 340px; max-width: min(520px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto; padding: 14px 16px; border: 1px solid ${colorControls.graphLines}; border-radius: 14px; background: rgba(2, 8, 23, 0.78); box-shadow: 0 0 28px rgba(34, 211, 238, 0.3); color: #dffcff; pointer-events: auto; }
     #debug-panel h1 { margin: 0 0 10px; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: #67e8f9; }
     .debug-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 3px 0; border-top: 1px solid rgba(148, 163, 184, 0.15); font-size: 13px; }
-    .debug-key { color: #93c5fd; }
-    .debug-value { color: #f8fafc; word-break: break-word; }
-    #control-panel { position: fixed; right: 14px; top: 14px; z-index: 12; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: min(460px, calc(100vw - 28px)); padding: 12px; border: 1px solid rgba(34, 211, 238, 0.7); border-radius: 14px; background: rgba(2, 8, 23, 0.78); box-shadow: 0 0 24px rgba(14, 165, 233, 0.25); }
+    .debug-key { color: ${colorControls.axisNumbers}; }
+    .debug-value { color: ${colorControls.axisNumbers}; word-break: break-word; }
+    #control-panel { position: fixed; right: 14px; top: 14px; z-index: 12; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: min(460px, calc(100vw - 28px)); padding: 12px; border: 1px solid ${colorControls.graphLines}; border-radius: 14px; background: rgba(2, 8, 23, 0.78); box-shadow: 0 0 24px rgba(14, 165, 233, 0.25); }
     #control-panel button, #control-panel label, #control-panel select { min-height: 34px; border: 1px solid rgba(125, 249, 255, 0.55); border-radius: 10px; background: rgba(14, 116, 144, 0.36); color: #e0f7ff; font: inherit; font-weight: 800; }
     #control-panel button { padding: 0 12px; cursor: pointer; }
     #control-panel button:hover { background: rgba(14, 165, 233, 0.5); }
     #control-panel label { display: inline-flex; gap: 7px; align-items: center; padding: 0 10px; cursor: pointer; }
     #control-panel select { padding: 0 9px; }
+    #graph-line-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.35; background-image: linear-gradient(${colorControls.graphLines} 1px, transparent 1px), linear-gradient(90deg, ${colorControls.graphLines} 1px, transparent 1px); background-size: 80px 80px; }
+    #axis-number-strip { position: fixed; left: 14px; top: 50%; z-index: 8; display: grid; gap: 44px; transform: translateY(-50%); color: ${colorControls.axisNumbers}; font-weight: 800; text-shadow: 0 0 8px ${colorControls.background}; pointer-events: none; }
+    .axis-number { color: ${colorControls.axisNumbers}; }
     #fallback-message { position: fixed; right: 14px; bottom: 14px; z-index: 11; max-width: 560px; padding: 14px 16px; border: 1px solid rgba(248, 113, 113, 0.7); border-radius: 14px; background: rgba(69, 10, 10, 0.9); color: #fee2e2; display: none; line-height: 1.45; }
-    .caption { position: fixed; left: 14px; bottom: 14px; z-index: 9; max-width: 780px; padding: 10px 12px; border-radius: 12px; background: rgba(2, 6, 23, 0.58); color: #bae6fd; font-size: 14px; }
+    .caption { position: fixed; left: 14px; bottom: 14px; z-index: 9; max-width: 780px; padding: 10px 12px; border-radius: 12px; background: rgba(2, 6, 23, 0.58); color: ${colorControls.axisNumbers}; font-size: 14px; }
     @media (max-width: 760px) { #debug-panel { top: auto; bottom: 14px; font-size: 12px; max-height: 45vh; } #control-panel { left: 14px; right: 14px; top: 14px; } .caption { display: none; } }
   </style>
 </head>
 <body>
   <main id="app" aria-label="Commandable Ocean Field">
     <div id="ocean-container" aria-label="visible animated point ocean canvas container"></div>
+    <div id="graph-line-overlay" aria-label="main graph grid line color overlay"></div>
+    <div id="axis-number-strip" aria-label="side number axis labels"><span class="axis-number">-50</span><span class="axis-number">0</span><span class="axis-number">50</span></div>
     <section id="control-panel" aria-label="ocean camera and view controls">
       <button id="reset-view" type="button">Reset View</button>
       <label><input id="auto-spin-toggle" type="checkbox"> Auto Spin</label>
@@ -198,7 +234,17 @@ ${renderDebugRows()}
       "use strict";
       var POINT_GRID_SIZE = ${POINT_GRID_SIZE};
       var POINT_COUNT = ${POINT_COUNT};
-      var BACKGROUND_RGB = [8, 20, 38];
+      var BACKGROUND_RGB = ${JSON.stringify(backgroundRgb)};
+      var COLOR_BACKGROUND = ${JSON.stringify(colorControls.background)};
+      var COLOR_GRAPH_LINES = ${JSON.stringify(colorControls.graphLines)};
+      var COLOR_AXIS_NUMBERS = ${JSON.stringify(colorControls.axisNumbers)};
+      var COLOR_POINTS = ${JSON.stringify(colorControls.points)};
+      var COLOR_DATA_LINES = ${JSON.stringify(colorControls.dataLines)};
+      var COLOR_SOURCE_BACKGROUND = ${JSON.stringify(colorControls.sourceBackground)};
+      var COLOR_SOURCE_GRAPH_LINES = ${JSON.stringify(colorControls.sourceGraphLines)};
+      var COLOR_SOURCE_AXIS_NUMBERS = ${JSON.stringify(colorControls.sourceAxisNumbers)};
+      var COLOR_SOURCE_POINTS = ${JSON.stringify(colorControls.sourcePoints)};
+      var COLOR_SOURCE_DATA_LINES = ${JSON.stringify(colorControls.sourceDataLines)};
       var PIXEL_SAMPLE_THRESHOLD = ${PIXEL_SAMPLE_THRESHOLD};
       var DEFAULT_VIEW = { yaw: 0, pitch: 0.48, distance: 92, targetX: 0, targetY: 0, targetZ: 0 };
       var container = document.getElementById("ocean-container");
@@ -220,7 +266,7 @@ ${renderDebugRows()}
         rendererReady: false, canvasWidth: 0, canvasHeight: 0, threeLoaded: typeof window.THREE !== "undefined", webglReady: false, sceneReady: false, cameraReady: false,
         threeCapabilities: threeCapabilities, pointCount: 0, objectCount: 0, animationFrameCount: 0, firstRenderCompleted: false, renderLoopAlive: false, visiblePixelSamplePassed: false, nonBackgroundPixelCount: 0, screenshotDataUrlLength: 0,
         controlsReady: false, cameraDistance: DEFAULT_VIEW.distance, cameraYaw: DEFAULT_VIEW.yaw, cameraPitch: DEFAULT_VIEW.pitch, cameraTargetX: 0, cameraTargetY: 0, cameraTargetZ: 0,
-        autoSpinEnabled: false, gridEnabled: true, viewMode: "points", animationPaused: false, interactionCount: 0, wheelCount: 0, dragCount: 0, touchCount: 0, lastControlEvent: "none", lastError: null
+        autoSpinEnabled: false, gridEnabled: true, viewMode: "points", animationPaused: false, interactionCount: 0, wheelCount: 0, dragCount: 0, touchCount: 0, lastControlEvent: "none", color_background: COLOR_BACKGROUND, color_graph_lines: COLOR_GRAPH_LINES, color_axis_numbers: COLOR_AXIS_NUMBERS, color_points: COLOR_POINTS, color_data_lines: COLOR_DATA_LINES, color_source_background: COLOR_SOURCE_BACKGROUND, color_source_graph_lines: COLOR_SOURCE_GRAPH_LINES, color_source_axis_numbers: COLOR_SOURCE_AXIS_NUMBERS, color_source_points: COLOR_SOURCE_POINTS, color_source_data_lines: COLOR_SOURCE_DATA_LINES, lastError: null
       };
       var view = { yaw: DEFAULT_VIEW.yaw, pitch: DEFAULT_VIEW.pitch, distance: DEFAULT_VIEW.distance, target: makeTarget(DEFAULT_VIEW.targetX, DEFAULT_VIEW.targetY, DEFAULT_VIEW.targetZ) };
 
@@ -252,7 +298,7 @@ ${renderDebugRows()}
           autoSpinEnabled: proof.autoSpinEnabled, gridEnabled: proof.gridEnabled, viewMode: proof.viewMode, animationPaused: proof.animationPaused, interactionCount: proof.interactionCount,
           wheelCount: proof.wheelCount, dragCount: proof.dragCount, touchCount: proof.touchCount, lastControlEvent: proof.lastControlEvent, lastError: proof.lastError, threeCapabilities: proof.threeCapabilities,
           three_loaded: proof.threeLoaded, webgl_ready: proof.webglReady, scene_ready: proof.sceneReady, camera_ready: proof.cameraReady, renderer_ready: proof.rendererReady,
-          point_count: proof.pointCount, animation_frame_count: proof.animationFrameCount, last_error: proof.lastError, three_capabilities: proof.threeCapabilities, errors: errors
+          point_count: proof.pointCount, animation_frame_count: proof.animationFrameCount, last_error: proof.lastError, color_background: proof.color_background, color_graph_lines: proof.color_graph_lines, color_axis_numbers: proof.color_axis_numbers, color_points: proof.color_points, color_data_lines: proof.color_data_lines, color_source_background: proof.color_source_background, color_source_graph_lines: proof.color_source_graph_lines, color_source_axis_numbers: proof.color_source_axis_numbers, color_source_points: proof.color_source_points, color_source_data_lines: proof.color_source_data_lines, three_capabilities: proof.threeCapabilities, errors: errors
         };
       };
 
@@ -269,7 +315,7 @@ ${renderDebugRows()}
         proof.webglReady = hasWebGLSupport();
         if (!proof.webglReady) return failRender("WebGL is not available in this browser, so the point ocean cannot render.");
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x081426);
+        scene.background = new THREE.Color(COLOR_BACKGROUND);
         proof.sceneReady = true;
         var width = Math.max(320, container.clientWidth || window.innerWidth || 960);
         var height = Math.max(240, container.clientHeight || window.innerHeight || 540);
@@ -309,7 +355,7 @@ ${renderDebugRows()}
         geometry.setAttribute("position", makeFloat32Attribute(positions, 3));
         addOptionalSurfaceIndex(geometry);
         if (typeof geometry.computeBoundingSphere === "function") geometry.computeBoundingSphere();
-        var material = new THREE.PointsMaterial({ color: 0x7df9ff, size: 1.9, sizeAttenuation: true, transparent: false, opacity: 1.0 });
+        var material = new THREE.PointsMaterial({ color: COLOR_POINTS, size: 1.9, sizeAttenuation: true, transparent: false, opacity: 1.0 });
         oceanPoints = new THREE.Points(geometry, material);
         scene.add(oceanPoints);
         proof.pointCount = getGeometryAttribute(geometry, "position").count;
@@ -339,7 +385,7 @@ ${renderDebugRows()}
       function tryAddWireObject(geometry) {
         try {
           if (typeof THREE.WireframeGeometry !== "function" || typeof THREE.LineSegments !== "function" || typeof THREE.LineBasicMaterial !== "function") return;
-          oceanWire = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.55 }));
+          oceanWire = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({ color: COLOR_DATA_LINES, transparent: true, opacity: 0.55 }));
           oceanWire.visible = false;
           scene.add(oceanWire);
         } catch (error) { console.warn("Optional wireframe failed and ocean render will continue:", error); oceanWire = null; }
@@ -348,7 +394,7 @@ ${renderDebugRows()}
       function tryAddSolidObject(geometry) {
         try {
           if (typeof THREE.MeshBasicMaterial !== "function" || typeof THREE.Mesh !== "function") return;
-          oceanSolid = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x0891b2, wireframe: false, transparent: true, opacity: 0.34, side: THREE.DoubleSide || 2 }));
+          oceanSolid = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: COLOR_DATA_LINES, wireframe: false, transparent: true, opacity: 0.34, side: THREE.DoubleSide || 2 }));
           oceanSolid.visible = false;
           scene.add(oceanSolid);
         } catch (error) { console.warn("Optional solid mesh failed and ocean render will continue:", error); oceanSolid = null; }
@@ -550,7 +596,7 @@ ${renderDebugRows()}
       function addOptionalGrid(scene, THREE) {
         try {
           if (typeof THREE.GridHelper !== "function") { setGridEnabled(false); return null; }
-          var grid = new THREE.GridHelper(110, 22, 0x1d4ed8, 0x0f766e);
+          var grid = new THREE.GridHelper(110, 22, COLOR_GRAPH_LINES, COLOR_GRAPH_LINES);
           grid.position.y = -5.4;
           scene.add(grid);
           gridHelper = grid;
@@ -649,6 +695,16 @@ ${renderDebugRows()}
       function failRender(message) { reportError(message); throw new Error(message); }
 
       function updateDebugPanel() {
+        setDebug("color_background", proof.color_background);
+        setDebug("color_graph_lines", proof.color_graph_lines);
+        setDebug("color_axis_numbers", proof.color_axis_numbers);
+        setDebug("color_points", proof.color_points);
+        setDebug("color_data_lines", proof.color_data_lines);
+        setDebug("color_source_background", proof.color_source_background);
+        setDebug("color_source_graph_lines", proof.color_source_graph_lines);
+        setDebug("color_source_axis_numbers", proof.color_source_axis_numbers);
+        setDebug("color_source_points", proof.color_source_points);
+        setDebug("color_source_data_lines", proof.color_source_data_lines);
         setDebug("renderer_ready", proof.rendererReady);
         setDebug("canvas_width", proof.canvasWidth);
         setDebug("canvas_height", proof.canvasHeight);
@@ -724,6 +780,8 @@ const htmlNeedles = [
   "firstRenderCompleted", "renderLoopAlive", "readPixels", "threeCapabilities", "three_capabilities", "THREE.WebGLRenderer", "THREE.Scene", "THREE.PerspectiveCamera", "THREE.BufferGeometry", "THREE.Float32BufferAttribute", "THREE.PointsMaterial", "THREE.Points",
   "requestAnimationFrame", "visible_pixel_sample_passed", "non_background_pixel_count", "screenshot_data_url_length", "controls_ready", "camera_distance", "camera_target_x",
   "auto_spin_enabled", "grid_enabled", "view_mode", "interaction_count", "wheel_count", "drag_count", "touch_count", "last_control_event", "last_error",
+  "color_background", "color_graph_lines", "color_axis_numbers", "color_points", "color_data_lines", "color_source_background", "color_source_graph_lines", "color_source_axis_numbers", "color_source_points", "color_source_data_lines",
+  "axis-number-strip", "COLOR_BACKGROUND", "COLOR_GRAPH_LINES", "COLOR_AXIS_NUMBERS", "COLOR_POINTS", "COLOR_DATA_LINES",
   "Reset View", "Auto Spin", "Grid", "Points", "Wire", "Solid", "Pause", "pointerdown", "wheel", "touch-action: none"
 ];
 for (const needle of htmlNeedles) if (!html.includes(needle)) fail("index.html is missing required text: " + needle);
@@ -742,6 +800,8 @@ try { state = JSON.parse(stateText); } catch (error) { fail("three-ocean-state.j
 if (state.point_count < 10000) fail("three-ocean-state.json point_count must be >= 10000");
 if (!Array.isArray(state.inspected_three_exports) || state.inspected_three_exports.includes("Vector3") || state.inspected_three_exports.includes("GridHelper")) fail("inspected_three_exports must reflect the tiny local vendor exports without Vector3/GridHelper");
 if (state.proof_state_global !== "window.GR4PH1C4_OCEAN_PROOF") fail("state proof global mismatch");
+const requiredColorStateFields = ["color_background", "color_graph_lines", "color_axis_numbers", "color_points", "color_data_lines", "color_source_background", "color_source_graph_lines", "color_source_axis_numbers", "color_source_points", "color_source_data_lines", "last_error"];
+for (const field of requiredColorStateFields) if (!(field in state)) fail("state missing color field " + field);
 for (const field of ${JSON.stringify(DEBUG_PANEL_FIELDS)}) if (!state.debug_panel_fields.includes(field)) fail("state missing debug field " + field);
 
 for (const proofString of requiredProofStrings) if (!proofLog.includes(proofString)) fail("proof.log is missing required proof string: " + proofString);
@@ -902,6 +962,7 @@ async function main() {
 
     const proof = await page.evaluate(async () => window.GR4PH1C4_CAPTURE_RENDER_PROOF());
     if (proof.lastError !== null && proof.lastError !== "") errors.push("lastError was " + proof.lastError);
+    for (const field of ["color_background", "color_graph_lines", "color_axis_numbers", "color_points", "color_data_lines", "color_source_background", "color_source_graph_lines", "color_source_axis_numbers", "color_source_points", "color_source_data_lines", "last_error"]) if (!(field in proof)) errors.push("browser proof missing " + field);
     if (pageErrors.length > 0) errors.push("page errors: " + pageErrors.join(" | "));
     if (proof.pointCount === 0) errors.push("point_count is 0 after proof capture");
     if (proof.animationFrameCount === 0) errors.push("animation_frame_count is 0 after proof capture");
@@ -918,12 +979,12 @@ main().catch(error => fail(error && error.message ? error.message : String(error
 `;
 }
 
-export async function runThreeOceanPointsDemo(): Promise<void> {
+export async function runThreeOceanPointsDemo(colorControls: OceanColorControls = defaultOceanColorControls()): Promise<void> {
   await rm(OUTPUT_DIR, { recursive: true, force: true });
   await mkdir(VENDOR_DIR, { recursive: true });
   await copyFile(SOURCE_BUNDLE_PATH, BUNDLE_PATH);
-  await writeFile(HTML_PATH, renderThreeOceanHtml(), "utf8");
-  await writeFile(STATE_PATH, `${JSON.stringify(THREE_OCEAN_STATE, null, 2)}\n`, "utf8");
+  await writeFile(HTML_PATH, renderThreeOceanHtml(colorControls), "utf8");
+  await writeFile(STATE_PATH, `${JSON.stringify(threeOceanState(colorControls), null, 2)}\n`, "utf8");
   await writeFile(PROOF_PATH, `${proofLines().join("\n")}\n`, "utf8");
   await writeFile(SMOKE_PATH, renderSmokeTest(), "utf8");
   await writeFile(BROWSER_SMOKE_PATH, renderBrowserSmokeTest(), "utf8");

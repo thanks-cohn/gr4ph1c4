@@ -16,6 +16,7 @@ import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
 import { runChartJsSineDemo } from "./chartjs-sine-demo";
+import { parseOceanColorControls } from "./color-controls";
 import { runThreeOceanPointsDemo } from "./three-ocean-points-demo";
 import { emitSineStream, runSineDemo } from "./sine-demo";
 
@@ -290,16 +291,8 @@ async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "three-ocean-points-demo") {
-    if (filePath !== undefined) {
-      throw new G4Error({
-        code: "GR4_THREE_OCEAN_ARGS",
-        where: "command line",
-        what: "three-ocean-points-demo received extra arguments",
-        why: "The PASS 6 Three.js ocean points demo writes a fixed local browser demo into dist/three-ocean-points-demo.",
-        next: "Run `node dist/main.js three-ocean-points-demo` with no arguments.",
-      });
-    }
-    await runThreeOceanPointsDemo();
+    const colorControls = parseOceanColorControls(argv.slice(1));
+    await runThreeOceanPointsDemo(colorControls);
     return;
   }
 

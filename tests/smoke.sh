@@ -485,6 +485,20 @@ for expected in \
   "non_background_pixel_count" \
   "screenshot_data_url_length" \
   "last_error" \
+  "color_background" \
+  "color_graph_lines" \
+  "color_axis_numbers" \
+  "color_points" \
+  "color_data_lines" \
+  "color_source_background" \
+  "color_source_graph_lines" \
+  "color_source_axis_numbers" \
+  "color_source_points" \
+  "color_source_data_lines" \
+  "axis-number-strip" \
+  "COLOR_BACKGROUND" \
+  "COLOR_POINTS" \
+  "COLOR_DATA_LINES" \
   "appendChild(renderer.domElement)" \
   "new THREE.PerspectiveCamera" \
   "new THREE.BufferGeometry" \
@@ -543,7 +557,14 @@ for expected in \
   '"point_count": 10000' \
   '"grid_size": 100' \
   '"proof_state_global": "window.GR4PH1C4_OCEAN_PROOF"' \
-  '"capture_function_global": "window.GR4PH1C4_CAPTURE_RENDER_PROOF"'; do
+  '"capture_function_global": "window.GR4PH1C4_CAPTURE_RENDER_PROOF"' \
+  '"color_background": "#081426"' \
+  '"color_graph_lines": "#1d4ed8"' \
+  '"color_axis_numbers": "#93c5fd"' \
+  '"color_points": "#7df9ff"' \
+  '"color_data_lines": "#38bdf8"' \
+  '"color_source_background": "default"' \
+  '"last_error": null'; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
     echo "smoke failed: three-ocean-state.json missing $expected" >&2
     exit 1
@@ -558,7 +579,7 @@ if (state.pass !== '7A-visible-ocean-render-proof') throw new Error(`pass was ${
 if (state.point_count < 10000) throw new Error(`point_count ${state.point_count} is less than 10000`);
 if (!state.inspected_three_exports.includes('WebGLRenderer')) throw new Error('missing inspected WebGLRenderer export');
 if (state.inspected_three_exports.includes('Vector3') || state.inspected_three_exports.includes('GridHelper')) throw new Error('inspected exports incorrectly include non-exported Vector3/GridHelper');
-for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'three_capabilities', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
+for (const field of ['color_background', 'color_graph_lines', 'color_axis_numbers', 'color_points', 'color_data_lines', 'color_source_background', 'color_source_graph_lines', 'color_source_axis_numbers', 'color_source_points', 'color_source_data_lines', 'renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'three_capabilities', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
   if (!state.debug_panel_fields.includes(field)) throw new Error(`missing debug field ${field}`);
 }
 NODE
@@ -600,6 +621,63 @@ if [ "$(node dist/three-ocean-points-demo/smoke-test.js)" != "GR4PH1C4_OCEAN_STA
   echo "smoke failed: generated three ocean static smoke test did not pass" >&2
   exit 1
 fi
+
+
+node dist/main.js three-ocean-points-demo --background black --graph-lines green --axis-numbers white --points cyan --data-lines cyan > /tmp/gr4ph1c4-ocean-colors-named.log
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+const expected = { color_background: '#000000', color_graph_lines: '#00ff00', color_axis_numbers: '#ffffff', color_points: '#00ffff', color_data_lines: '#00ffff' };
+for (const [key, value] of Object.entries(expected)) if (state[key] !== value) throw new Error(`${key} was ${state[key]}, expected ${value}`);
+for (const key of ['color_source_background', 'color_source_graph_lines', 'color_source_axis_numbers', 'color_source_points', 'color_source_data_lines', 'last_error']) if (!(key in state)) throw new Error(`missing ${key}`);
+NODE
+node dist/main.js three-ocean-points-demo --bg "#000000" --grid "#00ff66" --axis "#ffffff" --point "#00ffff" --line "#00ffff" > /tmp/gr4ph1c4-ocean-colors-short.log
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+if (state.color_background !== '#000000' || state.color_graph_lines !== '#00ff66' || state.color_axis_numbers !== '#ffffff' || state.color_points !== '#00ffff' || state.color_data_lines !== '#00ffff') throw new Error('short alias hex colors did not normalize');
+NODE
+node dist/main.js three-ocean-points-demo --bg 000000 --grid 00ff66 --axis ffffff --point 00ffff --line 00ffff > /tmp/gr4ph1c4-ocean-colors-bare-hex.log
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+if (state.color_background !== '#000000' || state.color_graph_lines !== '#00ff66' || state.color_axis_numbers !== '#ffffff' || state.color_points !== '#00ffff' || state.color_data_lines !== '#00ffff') throw new Error('bare hex colors did not normalize');
+NODE
+node dist/main.js three-ocean-points-demo --bg "rgb(0,0,0)" --grid "rgb(0,255,102)" --axis "rgb(255,255,255)" --point "rgb(0,255,255)" --line "rgb(0,255,255)" > /tmp/gr4ph1c4-ocean-colors-rgb.log
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+if (state.color_background !== '#000000' || state.color_graph_lines !== '#00ff66' || state.color_axis_numbers !== '#ffffff' || state.color_points !== '#00ffff' || state.color_data_lines !== '#00ffff') throw new Error('rgb colors did not normalize');
+NODE
+node dist/main.js three-ocean-points-demo --bg blk --grid grn --axis wht --point cy --line cy > /tmp/gr4ph1c4-ocean-colors-color-alias.log
+node - <<'NODE'
+const fs = require('node:fs');
+const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
+if (state.color_background !== '#000000' || state.color_graph_lines !== '#00ff00' || state.color_axis_numbers !== '#ffffff' || state.color_points !== '#00ffff' || state.color_data_lines !== '#00ffff') throw new Error('color aliases did not normalize');
+NODE
+
+set +e
+node dist/main.js three-ocean-points-demo --bg notacolor > /tmp/gr4ph1c4-ocean-bad-color.log 2>&1
+bad_color_status=$?
+node dist/main.js three-ocean-points-demo --bg "rgb(256,0,0)" > /tmp/gr4ph1c4-ocean-bad-rgb.log 2>&1
+bad_rgb_status=$?
+node dist/main.js three-ocean-points-demo --bg > /tmp/gr4ph1c4-ocean-missing-color.log 2>&1
+missing_color_status=$?
+set -e
+if [ "$bad_color_status" -eq 0 ] || ! grep -Fq 'G4-COLOR-UNKNOWN:notacolor' /tmp/gr4ph1c4-ocean-bad-color.log; then
+  echo "smoke failed: invalid color did not fail clearly" >&2
+  exit 1
+fi
+if [ "$bad_rgb_status" -eq 0 ] || ! grep -Fq 'G4-COLOR-RGB-RANGE:rgb(256,0,0)' /tmp/gr4ph1c4-ocean-bad-rgb.log; then
+  echo "smoke failed: out of range rgb did not fail clearly" >&2
+  exit 1
+fi
+if [ "$missing_color_status" -eq 0 ] || ! grep -Fq 'G4-COLOR-MISSING-VALUE:--bg' /tmp/gr4ph1c4-ocean-missing-color.log; then
+  echo "smoke failed: missing color value did not fail clearly" >&2
+  exit 1
+fi
+
+node dist/main.js three-ocean-points-demo > /tmp/gr4ph1c4-ocean-default-after-color-tests.log
 
 printf '%s\n' 'PASS GR4PH1C4 V0 PASS 6 smoke' 
 
