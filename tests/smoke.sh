@@ -442,7 +442,8 @@ for output_file in \
   dist/three-ocean-points-demo/vendor/three.min.js \
   dist/three-ocean-points-demo/three-ocean-state.json \
   dist/three-ocean-points-demo/proof.log \
-  dist/three-ocean-points-demo/smoke-test.js; do
+  dist/three-ocean-points-demo/smoke-test.js \
+  dist/three-ocean-points-demo/browser-render-smoke-test.js; do
   if [ ! -f "$output_file" ]; then
     echo "smoke failed: three ocean output missing $output_file" >&2
     exit 1
@@ -452,19 +453,21 @@ done
 for expected in \
   "Commandable Ocean Field" \
   "GR4PH1C4_OCEAN_PROOF" \
+  "GR4PH1C4_CAPTURE_RENDER_PROOF" \
   "WebGL" \
   "pointCount" \
   "requestAnimationFrame" \
   "THREE.WebGLRenderer" \
+  "THREE.Scene" \
+  "THREE.PerspectiveCamera" \
+  "THREE.BufferGeometry" \
+  "THREE.PointsMaterial" \
   "THREE.Points" \
-  "THREE.LineBasicMaterial" \
-  "THREE.LineSegments" \
-  "verifyRequiredThreeConstructors" \
-  "addGrid" \
-  "runRenderProof" \
-  "rendererDomAttached" \
-  "renderProofPassed" \
-  "renderProofPixelSample" \
+  "firstRenderCompleted" \
+  "renderLoopAlive" \
+  "visiblePixelSamplePassed" \
+  "nonBackgroundPixelCount" \
+  "screenshotDataUrlLength" \
   "canvas" \
   "renderer_ready" \
   "canvas_width" \
@@ -475,17 +478,19 @@ for expected in \
   "camera_ready" \
   "point_count" \
   "animation_frame_count" \
+  "first_render_completed" \
+  "render_loop_alive" \
+  "visible_pixel_sample_passed" \
+  "non_background_pixel_count" \
+  "screenshot_data_url_length" \
   "last_error" \
   "appendChild(renderer.domElement)" \
   "new THREE.PerspectiveCamera" \
   "new THREE.BufferGeometry" \
-  "new THREE.Float32BufferAttribute" \
   "new THREE.Points" \
-  "new THREE.LineSegments" \
-  "typeof THREE.GridHelper" \
-  "renderer DOM element is not attached" \
-  "animation_frame_count stayed 0" \
-  "last_error is non-null" \
+  "try {" \
+  "THREE.GridHelper" \
+  "Optional GridHelper failed" \
   "readPixels" \
   "vendor/three.min.js"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
@@ -497,6 +502,19 @@ done
 for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls; do
   if grep -Fq "$forbidden" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html contains forbidden remote/control/fake evidence $forbidden" >&2
+    exit 1
+  fi
+done
+
+for expected in \
+  "playwright" \
+  "chromium.launch" \
+  "GR4PH1C4_CAPTURE_RENDER_PROOF" \
+  "browser-render-proof.json" \
+  "browser-render-proof.png" \
+  "GR4PH1C4_BROWSER_RENDER_SMOKE_TEST_PASS"; do
+  if ! grep -Fq "$expected" dist/three-ocean-points-demo/browser-render-smoke-test.js; then
+    echo "smoke failed: browser render smoke test missing $expected" >&2
     exit 1
   fi
 done
@@ -518,7 +536,8 @@ for expected in \
   '"title": "Commandable Ocean Field"' \
   '"point_count": 10000' \
   '"grid_size": 100' \
-  '"proof_state_global": "window.GR4PH1C4_OCEAN_PROOF"'; do
+  '"proof_state_global": "window.GR4PH1C4_OCEAN_PROOF"' \
+  '"capture_function_global": "window.GR4PH1C4_CAPTURE_RENDER_PROOF"'; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
     echo "smoke failed: three-ocean-state.json missing $expected" >&2
     exit 1
@@ -531,7 +550,7 @@ const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-oce
 if (state.demo !== 'three-ocean-points') throw new Error(`demo was ${state.demo}`);
 if (state.pass !== '7A-visible-ocean-render-proof') throw new Error(`pass was ${state.pass}`);
 if (state.point_count < 9000) throw new Error(`point_count ${state.point_count} is less than 9000`);
-for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'point_count', 'animation_frame_count', 'last_error']) {
+for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
   if (!state.debug_panel_fields.includes(field)) throw new Error(`missing debug field ${field}`);
 }
 NODE
@@ -540,22 +559,25 @@ for expected in \
   "GR4PH1C4_THREE_OCEAN_VISIBLE_BASELINE" \
   "OCEAN_POINT_FIELD_GENERATED" \
   "OCEAN_POINT_COUNT_9000_OR_MORE" \
-  "THREE_REQUIRED_CONSTRUCTORS_VERIFIED" \
-  "THREE_GRIDHELPER_OPTIONAL_MANUAL_FALLBACK" \
   "THREE_LOCAL_VENDOR_PRESENT" \
   "WEBGL_RENDERER_DECLARED" \
   "SCENE_CAMERA_RENDERER_DECLARED" \
   "ANIMATION_LOOP_DECLARED" \
   "BROWSER_PROOF_STATE_DECLARED" \
   "VISIBLE_DEBUG_PANEL_DECLARED" \
-  "SMOKE_TEST_CREATED" \
+  "STATIC_SMOKE_TEST_CREATED" \
+  "BROWSER_RENDER_SMOKE_TEST_CREATED" \
+  "CANVAS_PIXEL_READBACK_ENABLED" \
+  "VISIBLE_PIXEL_SAMPLE_REQUIRED" \
+  "SCREENSHOT_RENDER_PROOF_REQUIRED" \
+  "BROWSER_RENDER_PROOF_JSON_REQUIRED" \
+  "GRID_HELPER_NOT_REQUIRED" \
+  "OPTIONAL_HELPERS_CANNOT_BLOCK_RENDER" \
   "NO_REMOTE_RUNTIME_REQUIRED" \
   "node dist/main.js three-ocean-points-demo" \
   "node dist/three-ocean-points-demo/smoke-test.js" \
-  "xdg-open dist/three-ocean-points-demo/index.html" \
-  "firefox dist/three-ocean-points-demo/index.html" \
-  "chromium dist/three-ocean-points-demo/index.html" \
-  "brave dist/three-ocean-points-demo/index.html"; do
+  "node dist/three-ocean-points-demo/browser-render-smoke-test.js" \
+  "xdg-open dist/three-ocean-points-demo/index.html"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/proof.log; then
     echo "smoke failed: three proof.log missing $expected" >&2
     exit 1
@@ -566,8 +588,8 @@ for expected in \
   fi
 done
 
-if [ "$(node dist/three-ocean-points-demo/smoke-test.js)" != "GR4PH1C4_OCEAN_SMOKE_TEST_PASS" ]; then
-  echo "smoke failed: generated three ocean smoke test did not pass" >&2
+if [ "$(node dist/three-ocean-points-demo/smoke-test.js)" != "GR4PH1C4_OCEAN_STATIC_SMOKE_TEST_PASS" ]; then
+  echo "smoke failed: generated three ocean static smoke test did not pass" >&2
   exit 1
 fi
 

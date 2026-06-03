@@ -9,7 +9,8 @@
     "test": "npm run smoke"
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "playwright": "^1.52.0"
   },
   "dependencies": {
     "chart.js": "file:vendor/chart.js",

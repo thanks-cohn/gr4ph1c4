@@ -17,25 +17,32 @@ const HTML_PATH = join(OUTPUT_DIR, "index.html");
 const STATE_PATH = join(OUTPUT_DIR, "three-ocean-state.json");
 const PROOF_PATH = join(OUTPUT_DIR, "proof.log");
 const SMOKE_PATH = join(OUTPUT_DIR, "smoke-test.js");
+const BROWSER_SMOKE_PATH = join(OUTPUT_DIR, "browser-render-smoke-test.js");
 const BUNDLE_PATH = join(VENDOR_DIR, "three.min.js");
 const SOURCE_BUNDLE_PATH = join("vendor", "three", "build", "three.min.js");
 
 const POINT_GRID_SIZE = 100;
 const POINT_COUNT = POINT_GRID_SIZE * POINT_GRID_SIZE;
+const PIXEL_SAMPLE_THRESHOLD = 120;
 
 const REQUIRED_PROOF_STRINGS = [
   "GR4PH1C4_THREE_OCEAN_VISIBLE_BASELINE",
   "OCEAN_POINT_FIELD_GENERATED",
   "OCEAN_POINT_COUNT_9000_OR_MORE",
-  "THREE_REQUIRED_CONSTRUCTORS_VERIFIED",
-  "THREE_GRIDHELPER_OPTIONAL_MANUAL_FALLBACK",
   "THREE_LOCAL_VENDOR_PRESENT",
   "WEBGL_RENDERER_DECLARED",
   "SCENE_CAMERA_RENDERER_DECLARED",
   "ANIMATION_LOOP_DECLARED",
   "BROWSER_PROOF_STATE_DECLARED",
   "VISIBLE_DEBUG_PANEL_DECLARED",
-  "SMOKE_TEST_CREATED",
+  "STATIC_SMOKE_TEST_CREATED",
+  "BROWSER_RENDER_SMOKE_TEST_CREATED",
+  "CANVAS_PIXEL_READBACK_ENABLED",
+  "VISIBLE_PIXEL_SAMPLE_REQUIRED",
+  "SCREENSHOT_RENDER_PROOF_REQUIRED",
+  "BROWSER_RENDER_PROOF_JSON_REQUIRED",
+  "GRID_HELPER_NOT_REQUIRED",
+  "OPTIONAL_HELPERS_CANNOT_BLOCK_RENDER",
   "NO_REMOTE_RUNTIME_REQUIRED",
 ];
 
@@ -48,22 +55,21 @@ const THREE_OCEAN_STATE = {
   local_bundle: "vendor/three.min.js",
   point_count: POINT_COUNT,
   grid_size: POINT_GRID_SIZE,
+  visible_pixel_sample_threshold: PIXEL_SAMPLE_THRESHOLD,
   three_source: "local vendor/three package with required WebGL ocean API constructors",
-  required_three_constructors: [
+  main_render_path_constructors: [
     "WebGLRenderer",
     "Scene",
     "PerspectiveCamera",
     "BufferGeometry",
-    "Float32BufferAttribute",
     "PointsMaterial",
     "Points",
-    "LineBasicMaterial",
-    "LineSegments",
   ],
-  optional_three_helpers: ["GridHelper"],
-  point_material: "high-contrast cyan/white additive THREE.PointsMaterial",
-  camera: { fov: 58, x: 52, y: 34, z: 72, target: { x: 0, y: 0, z: 0 } },
+  optional_three_helpers: ["GridHelper", "Float32BufferAttribute", "LineBasicMaterial", "LineSegments"],
+  point_material: "large high-contrast cyan THREE.PointsMaterial against #081426 background",
+  camera: { fov: 58, x: 0, y: 42, z: 82, target: { x: 0, y: 0, z: 0 } },
   proof_state_global: "window.GR4PH1C4_OCEAN_PROOF",
+  capture_function_global: "window.GR4PH1C4_CAPTURE_RENDER_PROOF",
   debug_panel_fields: [
     "renderer_ready",
     "canvas_width",
@@ -74,15 +80,18 @@ const THREE_OCEAN_STATE = {
     "camera_ready",
     "point_count",
     "animation_frame_count",
+    "first_render_completed",
+    "render_loop_alive",
+    "visible_pixel_sample_passed",
+    "non_background_pixel_count",
+    "screenshot_data_url_length",
     "last_error",
   ],
   required_commands: [
     "node dist/main.js three-ocean-points-demo",
     "node dist/three-ocean-points-demo/smoke-test.js",
+    "node dist/three-ocean-points-demo/browser-render-smoke-test.js",
     "xdg-open dist/three-ocean-points-demo/index.html",
-    "firefox dist/three-ocean-points-demo/index.html",
-    "chromium dist/three-ocean-points-demo/index.html",
-    "brave dist/three-ocean-points-demo/index.html",
   ],
 };
 
@@ -90,21 +99,17 @@ function proofLines(): string[] {
   return [
     ...REQUIRED_PROOF_STRINGS,
     "",
-    "manual test commands:",
+    "manual and acceptance commands:",
     "node dist/main.js three-ocean-points-demo",
     "node dist/three-ocean-points-demo/smoke-test.js",
+    "node dist/three-ocean-points-demo/browser-render-smoke-test.js",
     "xdg-open dist/three-ocean-points-demo/index.html",
     "",
-    "browser fallbacks:",
-    "firefox dist/three-ocean-points-demo/index.html",
-    "chromium dist/three-ocean-points-demo/index.html",
-    "brave dist/three-ocean-points-demo/index.html",
-    "",
     `point_count=${POINT_COUNT}`,
-    "required constructors: WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, Float32BufferAttribute, PointsMaterial, Points, LineBasicMaterial, LineSegments",
-    "GridHelper optional: manual BufferGeometry + LineSegments fallback enabled",
-    "render proof: attached canvas, nonzero point_count, increasing animation_frame_count, nonblank pixels, last_error null",
-    "title=Commandable Ocean Field",
+    `visible_pixel_sample_threshold=${PIXEL_SAMPLE_THRESHOLD}`,
+    "main render path: WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, PointsMaterial, Points",
+    "optional helpers: any GridHelper/LineSegments failure is caught and cannot block rendering",
+    "browser proof: real browser opens file:// index.html, waits for >=30 frames, readPixels counts non-background pixels, writes browser-render-proof.json and browser-render-proof.png",
     "runtime=local file with dist/three-ocean-points-demo/vendor/three.min.js",
   ];
 }
@@ -118,17 +123,17 @@ function renderThreeOceanHtml(): string {
   <title>Commandable Ocean Field</title>
   <style>
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-    body { background: #07111f; color: #e0f7ff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    #app { position: fixed; inset: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #10233e 0%, #08111f 58%, #020714 100%); }
+    body { background: #081426; color: #e0f7ff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    #app { position: fixed; inset: 0; width: 100%; height: 100%; background: #081426; }
     #ocean-container { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 320px; min-height: 240px; }
     canvas { display: block; width: 100% !important; height: 100% !important; }
-    #debug-panel { position: fixed; top: 14px; left: 14px; z-index: 10; min-width: 320px; max-width: min(440px, calc(100vw - 28px)); padding: 14px 16px; border: 1px solid rgba(125, 249, 255, 0.72); border-radius: 14px; background: rgba(2, 8, 23, 0.86); box-shadow: 0 0 28px rgba(34, 211, 238, 0.28); color: #dffcff; }
+    #debug-panel { position: fixed; top: 14px; left: 14px; z-index: 10; min-width: 340px; max-width: min(500px, calc(100vw - 28px)); padding: 14px 16px; border: 1px solid rgba(125, 249, 255, 0.8); border-radius: 14px; background: rgba(2, 8, 23, 0.86); box-shadow: 0 0 28px rgba(34, 211, 238, 0.3); color: #dffcff; }
     #debug-panel h1 { margin: 0 0 10px; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: #67e8f9; }
-    .debug-row { display: grid; grid-template-columns: 190px 1fr; gap: 10px; padding: 3px 0; border-top: 1px solid rgba(148, 163, 184, 0.15); font-size: 13px; }
+    .debug-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 3px 0; border-top: 1px solid rgba(148, 163, 184, 0.15); font-size: 13px; }
     .debug-key { color: #93c5fd; }
     .debug-value { color: #f8fafc; word-break: break-word; }
-    #fallback-message { position: fixed; right: 14px; bottom: 14px; z-index: 11; max-width: 560px; padding: 14px 16px; border: 1px solid rgba(248, 113, 113, 0.7); border-radius: 14px; background: rgba(69, 10, 10, 0.88); color: #fee2e2; display: none; line-height: 1.45; }
-    .caption { position: fixed; left: 14px; bottom: 14px; z-index: 9; max-width: 700px; padding: 10px 12px; border-radius: 12px; background: rgba(2, 6, 23, 0.58); color: #bae6fd; font-size: 14px; }
+    #fallback-message { position: fixed; right: 14px; bottom: 14px; z-index: 11; max-width: 560px; padding: 14px 16px; border: 1px solid rgba(248, 113, 113, 0.7); border-radius: 14px; background: rgba(69, 10, 10, 0.9); color: #fee2e2; display: none; line-height: 1.45; }
+    .caption { position: fixed; left: 14px; bottom: 14px; z-index: 9; max-width: 780px; padding: 10px 12px; border-radius: 12px; background: rgba(2, 6, 23, 0.58); color: #bae6fd; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -145,10 +150,15 @@ function renderThreeOceanHtml(): string {
       <div class="debug-row"><span class="debug-key">camera_ready</span><span class="debug-value" id="debug-camera_ready">false</span></div>
       <div class="debug-row"><span class="debug-key">point_count</span><span class="debug-value" id="debug-point_count">0</span></div>
       <div class="debug-row"><span class="debug-key">animation_frame_count</span><span class="debug-value" id="debug-animation_frame_count">0</span></div>
+      <div class="debug-row"><span class="debug-key">first_render_completed</span><span class="debug-value" id="debug-first_render_completed">false</span></div>
+      <div class="debug-row"><span class="debug-key">render_loop_alive</span><span class="debug-value" id="debug-render_loop_alive">false</span></div>
+      <div class="debug-row"><span class="debug-key">visible_pixel_sample_passed</span><span class="debug-value" id="debug-visible_pixel_sample_passed">false</span></div>
+      <div class="debug-row"><span class="debug-key">non_background_pixel_count</span><span class="debug-value" id="debug-non_background_pixel_count">0</span></div>
+      <div class="debug-row"><span class="debug-key">screenshot_data_url_length</span><span class="debug-value" id="debug-screenshot_data_url_length">0</span></div>
       <div class="debug-row"><span class="debug-key">last_error</span><span class="debug-value" id="debug-last_error">null</span></div>
     </section>
     <aside id="fallback-message" role="alert"></aside>
-    <p class="caption">High-contrast THREE.Points wave field: 10,000 animated points, local Three.js bundle, no CDN.</p>
+    <p class="caption">High-contrast THREE.Points wave field: 10,000 animated points, local Three.js bundle, no CDN, browser pixel proof enabled.</p>
   </main>
   <script src="vendor/three.min.js"></script>
   <script>
@@ -156,6 +166,8 @@ function renderThreeOceanHtml(): string {
       "use strict";
       var POINT_GRID_SIZE = ${POINT_GRID_SIZE};
       var POINT_COUNT = ${POINT_COUNT};
+      var BACKGROUND_RGB = [8, 20, 38];
+      var PIXEL_SAMPLE_THRESHOLD = ${PIXEL_SAMPLE_THRESHOLD};
       var container = document.getElementById("ocean-container");
       var fallback = document.getElementById("fallback-message");
       var renderer = null;
@@ -163,7 +175,7 @@ function renderThreeOceanHtml(): string {
       var camera = null;
       var oceanPoints = null;
       var positions = null;
-      var renderProofStarted = false;
+      var lastFrameTimestamp = 0;
       var proof = window.GR4PH1C4_OCEAN_PROOF = {
         rendererReady: false,
         canvasWidth: 0,
@@ -174,28 +186,57 @@ function renderThreeOceanHtml(): string {
         cameraReady: false,
         pointCount: 0,
         animationFrameCount: 0,
-        lastError: null,
-        rendererDomAttached: false,
-        renderProofPassed: false,
-        renderProofPixelSample: null
+        firstRenderCompleted: false,
+        renderLoopAlive: false,
+        visiblePixelSamplePassed: false,
+        nonBackgroundPixelCount: 0,
+        screenshotDataUrlLength: 0,
+        lastError: null
       };
 
-      window.addEventListener("error", function (event) {
-        reportError(event.message || "Unknown browser error");
-      });
-      window.addEventListener("unhandledrejection", function (event) {
-        reportError(event.reason && event.reason.message ? event.reason.message : String(event.reason));
-      });
+      window.GR4PH1C4_CAPTURE_RENDER_PROOF = async function () {
+        var errors = [];
+        await waitForFrames(30);
+        sampleVisiblePixels();
+        proof.screenshotDataUrlLength = safeScreenshotLength();
+        proof.renderLoopAlive = proof.animationFrameCount >= 30 && performance.now() - lastFrameTimestamp < 1000;
+        if (proof.canvasWidth <= 0) errors.push("canvas width is 0");
+        if (proof.canvasHeight <= 0) errors.push("canvas height is 0");
+        if (proof.pointCount < 9000) errors.push("pointCount is below 9000");
+        if (proof.animationFrameCount < 30) errors.push("animationFrameCount is below 30");
+        if (!proof.firstRenderCompleted) errors.push("firstRenderCompleted is false");
+        if (!proof.renderLoopAlive) errors.push("renderLoopAlive is false");
+        if (proof.nonBackgroundPixelCount < PIXEL_SAMPLE_THRESHOLD) errors.push("nonBackgroundPixelCount is below threshold " + PIXEL_SAMPLE_THRESHOLD);
+        if (!proof.visiblePixelSamplePassed) errors.push("visiblePixelSamplePassed is false");
+        if (proof.lastError && /fatal|render|webgl|error/i.test(proof.lastError)) errors.push("lastError contains a fatal render error: " + proof.lastError);
+        updateDebugPanel();
+        return {
+          ok: errors.length === 0,
+          canvasWidth: proof.canvasWidth,
+          canvasHeight: proof.canvasHeight,
+          pointCount: proof.pointCount,
+          animationFrameCount: proof.animationFrameCount,
+          firstRenderCompleted: proof.firstRenderCompleted,
+          renderLoopAlive: proof.renderLoopAlive,
+          nonBackgroundPixelCount: proof.nonBackgroundPixelCount,
+          visiblePixelSamplePassed: proof.visiblePixelSamplePassed,
+          screenshotDataUrlLength: proof.screenshotDataUrlLength,
+          lastError: proof.lastError,
+          errors: errors
+        };
+      };
+
+      window.addEventListener("error", function (event) { reportError(event.message || "Unknown browser error"); });
+      window.addEventListener("unhandledrejection", function (event) { reportError(event.reason && event.reason.message ? event.reason.message : String(event.reason)); });
 
       updateDebugPanel();
-
       initializeOcean();
 
       function initializeOcean() {
-        if (!proof.threeLoaded) failRender("Three.js did not load from vendor/three.min.js");
-        verifyRequiredThreeConstructors();
+        if (!proof.threeLoaded) return failRender("Three.js did not load from vendor/three.min.js");
+        verifyMainRenderConstructors();
         proof.webglReady = hasWebGLSupport();
-        if (!proof.webglReady) failRender("WebGL is not available in this browser, so the point ocean cannot render.");
+        if (!proof.webglReady) return failRender("WebGL is not available in this browser, so the point ocean cannot render.");
 
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x081426);
@@ -204,11 +245,11 @@ function renderThreeOceanHtml(): string {
         var width = Math.max(320, container.clientWidth || window.innerWidth || 960);
         var height = Math.max(240, container.clientHeight || window.innerHeight || 540);
         camera = new THREE.PerspectiveCamera(58, width / height, 0.1, 1000);
-        camera.position.set(52, 34, 72);
+        camera.position.set(0, 42, 82);
         camera.lookAt(0, 0, 0);
         proof.cameraReady = true;
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance", preserveDrawingBuffer: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(width, height, false);
         renderer.domElement.setAttribute("aria-label", "canvas rendering visible animated ocean point field");
@@ -219,42 +260,33 @@ function renderThreeOceanHtml(): string {
 
         var geometry = new THREE.BufferGeometry();
         positions = new Float32Array(POINT_COUNT * 3);
-        var colors = new Float32Array(POINT_COUNT * 3);
         var cursor = 0;
-        var colorCursor = 0;
         for (var zIndex = 0; zIndex < POINT_GRID_SIZE; zIndex += 1) {
           for (var xIndex = 0; xIndex < POINT_GRID_SIZE; xIndex += 1) {
-            var x = (xIndex - POINT_GRID_SIZE / 2) * 1.05;
-            var z = (zIndex - POINT_GRID_SIZE / 2) * 1.05;
+            var x = (xIndex - (POINT_GRID_SIZE - 1) / 2) * 1.0;
+            var z = (zIndex - (POINT_GRID_SIZE - 1) / 2) * 1.0;
             positions[cursor] = x;
             positions[cursor + 1] = waveHeight(x, z, 0);
             positions[cursor + 2] = z;
             cursor += 3;
-            var crest = (positions[cursor - 2] + 5.5) / 11;
-            colors[colorCursor] = 0.18 + crest * 0.35;
-            colors[colorCursor + 1] = 0.82 + crest * 0.16;
-            colors[colorCursor + 2] = 1.0;
-            colorCursor += 3;
           }
         }
-        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setAttribute("position", makeFloat32Attribute(positions, 3));
         if (typeof geometry.computeBoundingSphere === "function") geometry.computeBoundingSphere();
 
         var material = new THREE.PointsMaterial({
-          size: 0.48,
+          color: 0x7df9ff,
+          size: 1.9,
           sizeAttenuation: true,
-          vertexColors: true,
           transparent: false,
           opacity: 1.0
         });
         oceanPoints = new THREE.Points(geometry, material);
         scene.add(oceanPoints);
         proof.pointCount = getGeometryAttribute(geometry, "position").count;
-        if (proof.pointCount <= 0) failRender("Point geometry contains zero vertices.");
+        if (proof.pointCount < 9000) return failRender("Point geometry contains fewer than 9000 vertices.");
 
-        addGrid(scene, THREE);
-
+        addOptionalGrid(scene, THREE);
         window.addEventListener("resize", resizeRenderer);
         updateDebugPanel();
         requestAnimationFrame(animate);
@@ -263,6 +295,8 @@ function renderThreeOceanHtml(): string {
       function animate(time) {
         try {
           proof.animationFrameCount += 1;
+          lastFrameTimestamp = performance.now();
+          proof.renderLoopAlive = true;
           var seconds = time * 0.001;
           var attr = getGeometryAttribute(oceanPoints.geometry, "position");
           for (var index = 0; index < POINT_COUNT; index += 1) {
@@ -270,15 +304,12 @@ function renderThreeOceanHtml(): string {
             attr.array[offset + 1] = waveHeight(attr.array[offset], attr.array[offset + 2], seconds);
           }
           attr.needsUpdate = true;
-          oceanPoints.rotation.y = Math.sin(seconds * 0.18) * 0.06;
+          oceanPoints.rotation.y = Math.sin(seconds * 0.18) * 0.04;
           renderer.render(scene, camera);
+          proof.firstRenderCompleted = true;
           proof.canvasWidth = renderer.domElement.width;
           proof.canvasHeight = renderer.domElement.height;
-          proof.rendererDomAttached = Boolean(renderer.domElement && renderer.domElement.parentNode === container);
-          if (!renderProofStarted && proof.animationFrameCount >= 8) {
-            renderProofStarted = true;
-            runRenderProof();
-          }
+          if (proof.animationFrameCount === 1 || proof.animationFrameCount % 15 === 0) sampleVisiblePixels();
           updateDebugPanel();
           requestAnimationFrame(animate);
         } catch (error) {
@@ -286,59 +317,28 @@ function renderThreeOceanHtml(): string {
         }
       }
 
-      function verifyRequiredThreeConstructors() {
-        var requiredConstructors = [
-          "WebGLRenderer",
-          "Scene",
-          "PerspectiveCamera",
-          "BufferGeometry",
-          "Float32BufferAttribute",
-          "PointsMaterial",
-          "Points",
-          "LineBasicMaterial",
-          "LineSegments"
-        ];
-        var missing = requiredConstructors.filter(function (name) {
-          return typeof THREE[name] !== "function";
-        });
-        if (missing.length > 0) {
-          failRender("Three.js vendor/three.min.js is missing required constructor(s): " + missing.join(", "));
-        }
+      function verifyMainRenderConstructors() {
+        var requiredConstructors = ["WebGLRenderer", "Scene", "PerspectiveCamera", "BufferGeometry", "PointsMaterial", "Points"];
+        var missing = requiredConstructors.filter(function (name) { return typeof THREE[name] !== "function"; });
+        if (missing.length > 0) failRender("Three.js vendor/three.min.js is missing main render constructor(s): " + missing.join(", "));
       }
 
-      function addGrid(scene, THREE) {
-        var grid;
-        if (typeof THREE.GridHelper === "function") {
-          grid = new THREE.GridHelper(120, 24, 0x1d4ed8, 0x0f766e);
+      function addOptionalGrid(scene, THREE) {
+        try {
+          if (typeof THREE.GridHelper !== "function" || typeof THREE.LineSegments !== "function" || typeof THREE.LineBasicMaterial !== "function") return null;
+          var grid = new THREE.GridHelper(110, 22, 0x1d4ed8, 0x0f766e);
           grid.position.y = -5.4;
           scene.add(grid);
           return grid;
+        } catch (error) {
+          console.warn("Optional GridHelper failed and ocean render will continue:", error);
+          return null;
         }
+      }
 
-        var geometry = new THREE.BufferGeometry();
-        var vertices = [];
-        var size = 120;
-        var divisions = 24;
-        var step = size / divisions;
-        var half = size / 2;
-
-        for (var i = 0; i <= divisions; i += 1) {
-          var p = -half + i * step;
-          vertices.push(-half, -5.4, p, half, -5.4, p);
-          vertices.push(p, -5.4, -half, p, -5.4, half);
-        }
-
-        geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-
-        var material = new THREE.LineBasicMaterial({
-          color: 0x335577,
-          transparent: true,
-          opacity: 0.35
-        });
-
-        grid = new THREE.LineSegments(geometry, material);
-        scene.add(grid);
-        return grid;
+      function makeFloat32Attribute(array, itemSize) {
+        if (typeof THREE.Float32BufferAttribute === "function") return new THREE.Float32BufferAttribute(array, itemSize);
+        return { array: array, itemSize: itemSize, count: array.length / itemSize, needsUpdate: true };
       }
 
       function getGeometryAttribute(geometry, name) {
@@ -346,22 +346,45 @@ function renderThreeOceanHtml(): string {
         return geometry.attributes[name];
       }
 
-      function runRenderProof() {
-        if (proof.pointCount <= 0) failRender("Render proof failed: point_count is 0");
-        if (proof.animationFrameCount <= 0) failRender("Render proof failed: animation_frame_count stayed 0");
-        if (!renderer || !renderer.domElement || renderer.domElement.parentNode !== container) {
-          failRender("Render proof failed: renderer DOM element is not attached");
-        }
-        if (proof.lastError !== null) failRender("Render proof failed: last_error is non-null: " + proof.lastError);
-
+      function sampleVisiblePixels() {
+        if (!renderer || !renderer.domElement) return 0;
         var gl = renderer.getContext ? renderer.getContext() : renderer.gl;
-        var pixel = new Uint8Array(4);
-        gl.readPixels(Math.floor(renderer.domElement.width / 2), Math.floor(renderer.domElement.height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-        proof.renderProofPixelSample = [pixel[0], pixel[1], pixel[2], pixel[3]];
-        if (pixel[0] === 0 && pixel[1] === 0 && pixel[2] === 0 && pixel[3] === 0) {
-          failRender("Render proof failed: sampled pixels are blank");
+        var width = renderer.domElement.width;
+        var height = renderer.domElement.height;
+        proof.canvasWidth = width;
+        proof.canvasHeight = height;
+        if (!gl || width <= 0 || height <= 0) return 0;
+        var sampleWidth = Math.min(240, width);
+        var sampleHeight = Math.min(160, height);
+        var x = Math.max(0, Math.floor((width - sampleWidth) / 2));
+        var y = Math.max(0, Math.floor((height - sampleHeight) / 2));
+        var pixels = new Uint8Array(sampleWidth * sampleHeight * 4);
+        gl.readPixels(x, y, sampleWidth, sampleHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        var nonBackground = 0;
+        for (var index = 0; index < pixels.length; index += 4) {
+          var dr = Math.abs(pixels[index] - BACKGROUND_RGB[0]);
+          var dg = Math.abs(pixels[index + 1] - BACKGROUND_RGB[1]);
+          var db = Math.abs(pixels[index + 2] - BACKGROUND_RGB[2]);
+          if (pixels[index + 3] > 0 && dr + dg + db > 35) nonBackground += 1;
         }
-        proof.renderProofPassed = true;
+        proof.nonBackgroundPixelCount = nonBackground;
+        proof.visiblePixelSamplePassed = nonBackground >= PIXEL_SAMPLE_THRESHOLD;
+        return nonBackground;
+      }
+
+      function waitForFrames(minFrames) {
+        return new Promise(function (resolve) {
+          function check() {
+            if (proof.animationFrameCount >= minFrames) resolve();
+            else requestAnimationFrame(check);
+          }
+          check();
+        });
+      }
+
+      function safeScreenshotLength() {
+        try { return renderer && renderer.domElement ? renderer.domElement.toDataURL("image/png").length : 0; }
+        catch (error) { reportError("Canvas screenshot readback failed: " + (error && error.message ? error.message : String(error))); return 0; }
       }
 
       function waveHeight(x, z, time) {
@@ -408,6 +431,11 @@ function renderThreeOceanHtml(): string {
         setDebug("camera_ready", proof.cameraReady);
         setDebug("point_count", proof.pointCount);
         setDebug("animation_frame_count", proof.animationFrameCount);
+        setDebug("first_render_completed", proof.firstRenderCompleted);
+        setDebug("render_loop_alive", proof.renderLoopAlive);
+        setDebug("visible_pixel_sample_passed", proof.visiblePixelSamplePassed);
+        setDebug("non_background_pixel_count", proof.nonBackgroundPixelCount);
+        setDebug("screenshot_data_url_length", proof.screenshotDataUrlLength);
         setDebug("last_error", proof.lastError === null ? "null" : proof.lastError);
       }
 
@@ -431,7 +459,7 @@ const root = __dirname;
 const requiredProofStrings = ${JSON.stringify(REQUIRED_PROOF_STRINGS, null, 2)};
 
 function fail(reason) {
-  console.error("GR4PH1C4_OCEAN_SMOKE_TEST_FAIL: " + reason);
+  console.error("GR4PH1C4_OCEAN_STATIC_SMOKE_TEST_FAIL: " + reason);
   process.exit(1);
 }
 
@@ -442,93 +470,162 @@ function readRequired(relativePath) {
 }
 
 const html = readRequired("index.html");
-readRequired(path.join("vendor", "three.min.js"));
+const vendor = readRequired(path.join("vendor", "three.min.js"));
 const stateText = readRequired("three-ocean-state.json");
 const proofLog = readRequired("proof.log");
+readRequired("browser-render-smoke-test.js");
 
 const htmlNeedles = [
   "Commandable Ocean Field",
   "GR4PH1C4_OCEAN_PROOF",
-  "WebGL",
-  "pointCount",
-  "requestAnimationFrame",
+  "GR4PH1C4_CAPTURE_RENDER_PROOF",
+  "visiblePixelSamplePassed",
+  "nonBackgroundPixelCount",
+  "screenshotDataUrlLength",
+  "firstRenderCompleted",
+  "renderLoopAlive",
+  "readPixels",
   "THREE.WebGLRenderer",
+  "THREE.Scene",
+  "THREE.PerspectiveCamera",
+  "THREE.BufferGeometry",
+  "THREE.PointsMaterial",
   "THREE.Points",
-  "THREE.LineBasicMaterial",
-  "THREE.LineSegments",
-  "verifyRequiredThreeConstructors",
-  "addGrid",
-  "runRenderProof",
-  "rendererDomAttached",
-  "renderProofPassed",
-  "renderProofPixelSample",
-  "canvas",
-  "renderer_ready",
-  "canvas_width",
-  "canvas_height",
-  "three_loaded",
-  "webgl_ready",
-  "scene_ready",
-  "camera_ready",
-  "point_count",
-  "animation_frame_count",
+  "requestAnimationFrame",
+  "visible_pixel_sample_passed",
+  "non_background_pixel_count",
+  "screenshot_data_url_length",
   "last_error"
 ];
-for (const needle of htmlNeedles) {
-  if (!html.includes(needle)) fail("index.html is missing required text: " + needle);
-}
+for (const needle of htmlNeedles) if (!html.includes(needle)) fail("index.html is missing required text: " + needle);
 
-if (!/html, body\\s*\\{[^}]*width:\\s*100%[^}]*height:\\s*100%[^}]*margin:\\s*0/s.test(html)) {
-  fail("index.html is missing defensive html/body width/height/margin CSS");
+for (const constructorName of ["WebGLRenderer", "Scene", "PerspectiveCamera", "BufferGeometry", "PointsMaterial", "Points"]) {
+  if (!vendor.includes(constructorName + ":")) fail("vendor three bundle does not export main render constructor: " + constructorName);
 }
-if (!/appendChild\\(renderer\\.domElement\\)/.test(html)) {
-  fail("index.html does not append renderer canvas to the visible container");
-}
-if (!/new THREE\\.PerspectiveCamera/.test(html)) {
-  fail("index.html does not declare a perspective camera");
-}
-if (!/new THREE\\.BufferGeometry/.test(html) || !/setAttribute\\(\"position\"/.test(html)) {
-  fail("index.html does not build nonzero point BufferGeometry positions");
-}
-
-for (const requiredConstructor of ["WebGLRenderer", "Scene", "PerspectiveCamera", "BufferGeometry", "Float32BufferAttribute", "PointsMaterial", "Points", "LineBasicMaterial", "LineSegments"]) {
-  if (!html.includes(requiredConstructor)) fail("index.html does not verify required constructor: " + requiredConstructor);
-  if (!fs.readFileSync(path.join(root, "vendor", "three.min.js"), "utf8").includes(requiredConstructor + ":")) fail("vendor three bundle does not export required constructor: " + requiredConstructor);
-}
-if (!/typeof THREE\.GridHelper === \"function\"/.test(html) || !/new THREE\.LineSegments/.test(html)) {
-  fail("index.html must treat GridHelper as optional and provide a LineSegments fallback");
-}
-for (const renderProofNeedle of ["point_count is 0", "animation_frame_count stayed 0", "renderer DOM element is not attached", "last_error is non-null", "readPixels"]) {
-  if (!html.includes(renderProofNeedle)) fail("index.html render proof is missing check: " + renderProofNeedle);
-}
+if (!html.includes("try {") || !html.includes("THREE.GridHelper") || !html.includes("catch (error)")) fail("GridHelper must be optional and catch-wrapped");
+if (html.includes("https://") || html.includes("http://")) fail("index.html must not use a remote runtime");
+if (!html.includes("var POINT_COUNT = 10000")) fail("index.html must declare 10000 points");
+if (!html.includes("size: 1.9")) fail("points must be large enough for immediate visibility");
 
 let state;
-try {
-  state = JSON.parse(stateText);
-} catch (error) {
-  fail("three-ocean-state.json is not valid JSON: " + error.message);
-}
-if (typeof state.point_count !== "number" || state.point_count < 9000) {
-  fail("three-ocean-state.json point_count must be >= 9000");
+try { state = JSON.parse(stateText); } catch (error) { fail("three-ocean-state.json is not valid JSON: " + error.message); }
+if (state.point_count < 9000) fail("three-ocean-state.json point_count must be >= 9000");
+if (state.proof_state_global !== "window.GR4PH1C4_OCEAN_PROOF") fail("state proof global mismatch");
+
+for (const proofString of requiredProofStrings) if (!proofLog.includes(proofString)) fail("proof.log is missing required proof string: " + proofString);
+for (const command of ["node dist/main.js three-ocean-points-demo", "node dist/three-ocean-points-demo/smoke-test.js", "node dist/three-ocean-points-demo/browser-render-smoke-test.js", "xdg-open dist/three-ocean-points-demo/index.html"]) {
+  if (!proofLog.includes(command)) fail("proof.log is missing command: " + command);
 }
 
-for (const proofString of requiredProofStrings) {
-  if (!proofLog.includes(proofString)) fail("proof.log is missing required proof string: " + proofString);
+console.log("GR4PH1C4_OCEAN_STATIC_SMOKE_TEST_PASS");
+`;
 }
 
-const manualCommands = [
-  "node dist/main.js three-ocean-points-demo",
-  "node dist/three-ocean-points-demo/smoke-test.js",
-  "xdg-open dist/three-ocean-points-demo/index.html",
-  "firefox dist/three-ocean-points-demo/index.html",
-  "chromium dist/three-ocean-points-demo/index.html",
-  "brave dist/three-ocean-points-demo/index.html"
-];
-for (const command of manualCommands) {
-  if (!proofLog.includes(command)) fail("proof.log is missing manual/browser command: " + command);
+function renderBrowserSmokeTest(): string {
+  return `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+
+const root = __dirname;
+const htmlPath = path.join(root, "index.html");
+const proofJsonPath = path.join(root, "browser-render-proof.json");
+const screenshotPath = path.join(root, "browser-render-proof.png");
+const threshold = ${PIXEL_SAMPLE_THRESHOLD};
+
+function fail(reason, detail) {
+  if (detail) console.error(detail);
+  console.error("GR4PH1C4_BROWSER_RENDER_SMOKE_TEST_FAIL: " + reason);
+  process.exit(1);
 }
 
-console.log("GR4PH1C4_OCEAN_SMOKE_TEST_PASS");
+function loadPlaywright() {
+  try { return require("playwright"); }
+  catch (error) {
+    fail("Playwright is not installed. Run npm install so devDependencies are present.", error && error.stack ? error.stack : String(error));
+  }
+}
+
+function systemBrowserExecutable() {
+  const candidates = process.platform === "win32"
+    ? []
+    : ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "microsoft-edge", "msedge"];
+  for (const candidate of candidates) {
+    try { return execFileSync("/bin/sh", ["-lc", "command -v " + candidate], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
+    catch (_) {}
+  }
+  return undefined;
+}
+
+async function main() {
+  if (!fs.existsSync(htmlPath)) fail("index.html does not exist at " + htmlPath);
+  const { chromium } = loadPlaywright();
+  const executablePath = process.env.GR4PH1C4_BROWSER_EXECUTABLE || systemBrowserExecutable();
+  const launchOptions = {
+    headless: true,
+    args: ["--allow-file-access-from-files", "--ignore-gpu-blocklist", "--enable-webgl", "--use-gl=swiftshader", "--no-sandbox"]
+  };
+  if (executablePath) launchOptions.executablePath = executablePath;
+
+  let browser;
+  try {
+    browser = await chromium.launch(launchOptions);
+  } catch (firstError) {
+    if (!executablePath) {
+      try {
+        console.error("Chromium launch failed; attempting Playwright Chromium browser install before retrying.");
+        execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["playwright", "install", "chromium"], { stdio: "inherit" });
+        browser = await chromium.launch(launchOptions);
+      } catch (installOrRetryError) {
+        fail("Could not launch a real Chromium browser after Playwright install attempt. Run: npx playwright install chromium", (firstError && firstError.stack ? firstError.stack : String(firstError)) + "\\n" + (installOrRetryError && installOrRetryError.stack ? installOrRetryError.stack : String(installOrRetryError)));
+      }
+    } else {
+      fail("Could not launch a real Chromium browser at " + executablePath, firstError && firstError.stack ? firstError.stack : String(firstError));
+    }
+  }
+
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  const consoleMessages = [];
+  const pageErrors = [];
+  page.on("console", message => consoleMessages.push(message.type() + ": " + message.text()));
+  page.on("pageerror", error => pageErrors.push(error.message));
+
+  try {
+    await page.goto("file://" + htmlPath, { waitUntil: "load", timeout: 30000 });
+    await page.waitForFunction(() => Boolean(window.GR4PH1C4_OCEAN_PROOF), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.GR4PH1C4_OCEAN_PROOF.animationFrameCount >= 30, null, { timeout: 15000 });
+    const proof = await page.evaluate(async () => window.GR4PH1C4_CAPTURE_RENDER_PROOF());
+    const errors = Array.isArray(proof.errors) ? proof.errors.slice() : [];
+    if (proof.canvasWidth <= 0) errors.push("canvasWidth <= 0");
+    if (proof.canvasHeight <= 0) errors.push("canvasHeight <= 0");
+    if (proof.pointCount < 9000) errors.push("pointCount < 9000");
+    if (proof.renderLoopAlive !== true) errors.push("renderLoopAlive !== true");
+    if (proof.firstRenderCompleted !== true) errors.push("firstRenderCompleted !== true");
+    if (proof.visiblePixelSamplePassed !== true) errors.push("visiblePixelSamplePassed !== true");
+    if (proof.nonBackgroundPixelCount < threshold) errors.push("nonBackgroundPixelCount < " + threshold);
+    if (proof.lastError !== null) errors.push("lastError was " + proof.lastError);
+    if (pageErrors.length > 0) errors.push("page errors: " + pageErrors.join(" | "));
+
+    const output = {
+      ...proof,
+      ok: errors.length === 0,
+      threshold,
+      htmlPath,
+      screenshotPath,
+      consoleMessages,
+      pageErrors,
+      capturedAt: new Date().toISOString()
+    };
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    fs.writeFileSync(proofJsonPath, JSON.stringify(output, null, 2) + "\\n", "utf8");
+    if (errors.length > 0) fail(errors.join("; "), JSON.stringify(output, null, 2));
+    console.log("GR4PH1C4_BROWSER_RENDER_SMOKE_TEST_PASS");
+  } finally {
+    await browser.close();
+  }
+}
+
+main().catch(error => fail(error && error.message ? error.message : String(error), error && error.stack ? error.stack : undefined));
 `;
 }
 
@@ -540,5 +637,6 @@ export async function runThreeOceanPointsDemo(): Promise<void> {
   await writeFile(STATE_PATH, `${JSON.stringify(THREE_OCEAN_STATE, null, 2)}\n`, "utf8");
   await writeFile(PROOF_PATH, `${proofLines().join("\n")}\n`, "utf8");
   await writeFile(SMOKE_PATH, renderSmokeTest(), "utf8");
+  await writeFile(BROWSER_SMOKE_PATH, renderBrowserSmokeTest(), "utf8");
   console.log(proofLines().join("\n"));
 }
