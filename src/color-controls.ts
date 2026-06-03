@@ -1,6 +1,6 @@
 import { G4Error } from "./errors";
 
-export type ColorSlot = "background" | "graphLines" | "axisNumbers" | "points" | "dataLines";
+export type ColorSlot = "background" | "graphLines" | "axisNumbers" | "points" | "dataLines" | "panelAccent" | "text";
 
 export interface OceanColorControls {
   background: string;
@@ -8,11 +8,15 @@ export interface OceanColorControls {
   axisNumbers: string;
   points: string;
   dataLines: string;
+  panelAccent: string;
+  text: string;
   sourceBackground: string;
   sourceGraphLines: string;
   sourceAxisNumbers: string;
   sourcePoints: string;
   sourceDataLines: string;
+  sourcePanelAccent: string;
+  sourceText: string;
   lastError: null;
 }
 
@@ -22,6 +26,8 @@ const DEFAULT_COLORS: Record<ColorSlot, string> = {
   axisNumbers: "#93c5fd",
   points: "#7df9ff",
   dataLines: "#38bdf8",
+  panelAccent: "#67e8f9",
+  text: "#dffcff",
 };
 
 const NAMED_COLORS: Record<string, string> = {
@@ -61,6 +67,9 @@ const FLAG_TO_SLOT: Record<string, ColorSlot> = {
   "--point": "points",
   "--data-lines": "dataLines",
   "--line": "dataLines",
+  "--panel-accent": "panelAccent",
+  "--accent": "panelAccent",
+  "--text": "text",
 };
 
 export function defaultOceanColorControls(): OceanColorControls {
@@ -70,11 +79,15 @@ export function defaultOceanColorControls(): OceanColorControls {
     axisNumbers: DEFAULT_COLORS.axisNumbers,
     points: DEFAULT_COLORS.points,
     dataLines: DEFAULT_COLORS.dataLines,
+    panelAccent: DEFAULT_COLORS.panelAccent,
+    text: DEFAULT_COLORS.text,
     sourceBackground: "default",
     sourceGraphLines: "default",
     sourceAxisNumbers: "default",
     sourcePoints: "default",
     sourceDataLines: "default",
+    sourcePanelAccent: "default",
+    sourceText: "default",
     lastError: null,
   };
 }
@@ -129,7 +142,9 @@ function assignColor(controls: OceanColorControls, slot: ColorSlot, normalized: 
   else if (slot === "graphLines") { controls.graphLines = normalized; controls.sourceGraphLines = source; }
   else if (slot === "axisNumbers") { controls.axisNumbers = normalized; controls.sourceAxisNumbers = source; }
   else if (slot === "points") { controls.points = normalized; controls.sourcePoints = source; }
-  else { controls.dataLines = normalized; controls.sourceDataLines = source; }
+  else if (slot === "dataLines") { controls.dataLines = normalized; controls.sourceDataLines = source; }
+  else if (slot === "panelAccent") { controls.panelAccent = normalized; controls.sourcePanelAccent = source; }
+  else { controls.text = normalized; controls.sourceText = source; }
 }
 
 function throwColorError(code: "G4-COLOR-UNKNOWN" | "G4-COLOR-RGB-RANGE" | "G4-COLOR-MISSING-VALUE", input: string): never {
