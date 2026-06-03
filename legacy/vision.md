@@ -198,5 +198,8 @@ make visuals commandable,
 make proof undeniable,
 and make explanation feel alive.
 
-git commit -m "docs: add gr4ph1c4 vision"
-git push
+
+
+
+
+
