@@ -439,9 +439,10 @@ npm run build
 node dist/main.js three-ocean-points-demo > dist/three-ocean-points-demo.stdout.log
 for output_file in \
   dist/three-ocean-points-demo/index.html \
+  dist/three-ocean-points-demo/vendor/three.min.js \
   dist/three-ocean-points-demo/three-ocean-state.json \
   dist/three-ocean-points-demo/proof.log \
-  dist/three-ocean-points-demo/vendor/three.min.js; do
+  dist/three-ocean-points-demo/smoke-test.js; do
   if [ ! -f "$output_file" ]; then
     echo "smoke failed: three ocean output missing $output_file" >&2
     exit 1
@@ -449,43 +450,29 @@ for output_file in \
 done
 
 for expected in \
-  "Gr4ph1c4 Three.js Point Ocean" \
-  "Interactive Ocean Handling" \
-  'data-demo="three-ocean-points"' \
-  'data-renderer="three.js"' \
-  'data-pass="6B-interactive-ocean-handling"' \
-  "THREE.Points" \
-  "THREE.BufferGeometry" \
+  "Commandable Ocean Field" \
+  "GR4PH1C4_OCEAN_PROOF" \
+  "WebGL" \
+  "pointCount" \
   "requestAnimationFrame" \
-  "localStorage" \
-  "pointerdown" \
-  "wheel" \
-  "Top View" \
-  "Side View" \
-  "Presentation View" \
-  "Save View" \
-  "Restore View" \
-  "Camera Position" \
-  "Camera Target" \
-  "Zoom Distance" \
-  "Command Prompt" \
-  "Drag: orbit" \
-  "Wheel: zoom" \
-  "Shift + drag: pan" \
-  "Spin Ocean" \
-  "Tilt Camera" \
-  "new THREE.WebGLRenderer" \
+  "THREE.WebGLRenderer" \
+  "THREE.Points" \
+  "canvas" \
+  "renderer_ready" \
+  "canvas_width" \
+  "canvas_height" \
+  "three_loaded" \
+  "webgl_ready" \
+  "scene_ready" \
+  "camera_ready" \
+  "point_count" \
+  "animation_frame_count" \
+  "last_error" \
+  "appendChild(renderer.domElement)" \
   "new THREE.PerspectiveCamera" \
   "new THREE.BufferGeometry" \
   "new THREE.Points" \
-  "setCameraView" \
-  "orbitCamera" \
-  "zoomCamera" \
-  "panCamera" \
-  "saveView" \
-  "restoreView" \
-  "STORAGE_KEY" \
-  "./vendor/three.min.js"; do
+  "vendor/three.min.js"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html missing $expected" >&2
     exit 1
@@ -506,18 +493,11 @@ fi
 
 for expected in \
   '"demo": "three-ocean-points"' \
-  '"pass": "6B-interactive-ocean-handling"' \
-  '"defaultCamera"' \
-  '"defaultTarget"' \
-  '"viewPresets"' \
-  '"interactionControls"' \
-  '"animation"' \
-  '"proof"' \
-  '"geometry": "THREE.BufferGeometry"' \
-  '"object": "THREE.Points"' \
-  '"interaction": "orbit zoom pan tilt presets pause reset save restore"' \
-  '"storage": "localStorage"' \
-  '"status": "ok"'; do
+  '"pass": "7A-visible-ocean-render-proof"' \
+  '"title": "Commandable Ocean Field"' \
+  '"point_count": 10000' \
+  '"grid_size": 100' \
+  '"proof_state_global": "window.GR4PH1C4_OCEAN_PROOF"'; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
     echo "smoke failed: three-ocean-state.json missing $expected" >&2
     exit 1
@@ -527,30 +507,32 @@ done
 node - <<'NODE'
 const fs = require('node:fs');
 const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
-for (const key of ['demo', 'pass', 'defaultCamera', 'defaultTarget', 'viewPresets', 'interactionControls', 'animation', 'proof']) {
-  if (!(key in state)) throw new Error(`missing state key ${key}`);
-}
 if (state.demo !== 'three-ocean-points') throw new Error(`demo was ${state.demo}`);
-if (state.pass !== '6B-interactive-ocean-handling') throw new Error(`pass was ${state.pass}`);
-for (const preset of ['top', 'side', 'presentation']) {
-  if (!state.viewPresets[preset]) throw new Error(`missing preset ${preset}`);
-}
-for (const control of ['orbit', 'spin', 'zoom', 'pan', 'tilt', 'presets', 'pauseResume', 'reset', 'saveRestore']) {
-  if (!(control in state.interactionControls)) throw new Error(`missing interaction control ${control}`);
+if (state.pass !== '7A-visible-ocean-render-proof') throw new Error(`pass was ${state.pass}`);
+if (state.point_count < 9000) throw new Error(`point_count ${state.point_count} is less than 9000`);
+for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'point_count', 'animation_frame_count', 'last_error']) {
+  if (!state.debug_panel_fields.includes(field)) throw new Error(`missing debug field ${field}`);
 }
 NODE
 
 for expected in \
-  "PASS GR4PH1C4 V0 PASS 6B interactive ocean handling proof" \
-  "command=node dist/main.js three-ocean-points-demo" \
-  "output=dist/three-ocean-points-demo/index.html" \
-  "state=dist/three-ocean-points-demo/three-ocean-state.json" \
-  "renderer=three.js local bundle" \
-  "geometry=THREE.BufferGeometry" \
-  "object=THREE.Points" \
-  "interaction=orbit zoom pan tilt presets pause reset save restore" \
-  "storage=localStorage" \
-  "status=ok"; do
+  "GR4PH1C4_THREE_OCEAN_VISIBLE_BASELINE" \
+  "OCEAN_POINT_FIELD_GENERATED" \
+  "OCEAN_POINT_COUNT_9000_OR_MORE" \
+  "THREE_LOCAL_VENDOR_PRESENT" \
+  "WEBGL_RENDERER_DECLARED" \
+  "SCENE_CAMERA_RENDERER_DECLARED" \
+  "ANIMATION_LOOP_DECLARED" \
+  "BROWSER_PROOF_STATE_DECLARED" \
+  "VISIBLE_DEBUG_PANEL_DECLARED" \
+  "SMOKE_TEST_CREATED" \
+  "NO_REMOTE_RUNTIME_REQUIRED" \
+  "node dist/main.js three-ocean-points-demo" \
+  "node dist/three-ocean-points-demo/smoke-test.js" \
+  "xdg-open dist/three-ocean-points-demo/index.html" \
+  "firefox dist/three-ocean-points-demo/index.html" \
+  "chromium dist/three-ocean-points-demo/index.html" \
+  "brave dist/three-ocean-points-demo/index.html"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/proof.log; then
     echo "smoke failed: three proof.log missing $expected" >&2
     exit 1
@@ -560,6 +542,11 @@ for expected in \
     exit 1
   fi
 done
+
+if [ "$(node dist/three-ocean-points-demo/smoke-test.js)" != "GR4PH1C4_OCEAN_SMOKE_TEST_PASS" ]; then
+  echo "smoke failed: generated three ocean smoke test did not pass" >&2
+  exit 1
+fi
 
 printf '%s\n' 'PASS GR4PH1C4 V0 PASS 6 smoke' 
 
