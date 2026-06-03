@@ -490,11 +490,19 @@ for expected in \
   "color_axis_numbers" \
   "color_points" \
   "color_data_lines" \
+  "color_panel_accent" \
+  "color_text" \
+  "colors_json" \
   "color_source_background" \
   "color_source_graph_lines" \
   "color_source_axis_numbers" \
   "color_source_points" \
   "color_source_data_lines" \
+  "color_source_panel_accent" \
+  "color_source_text" \
+  "window_control_panel_minimized" \
+  "window_debug_panel_minimized" \
+  "windows_minimized_json" \
   "axis-number-strip" \
   "COLOR_BACKGROUND" \
   "COLOR_POINTS" \
@@ -505,8 +513,8 @@ for expected in \
   "new THREE.Points" \
   "THREE.Float32BufferAttribute" \
   "try {" \
-  "THREE.GridHelper" \
-  "Optional GridHelper failed" \
+  "function addLocalGridLines" \
+  "THREE.LineSegments" \
   "readPixels" \
   "vendor/three.min.js"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
@@ -515,7 +523,7 @@ for expected in \
   fi
 done
 
-for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls "new THREE.Vector3"; do
+for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls "new THREE.Vector3" "THREE.GridHelper"; do
   if grep -Fq "$forbidden" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html contains forbidden remote/control/fake evidence $forbidden" >&2
     exit 1
@@ -526,12 +534,16 @@ for expected in \
   "playwright" \
   "chromium.launch" \
   "GR4PH1C4_CAPTURE_RENDER_PROOF" \
+  "input[type=color][data-color-key]" \
+  "control panel minimized state did not become true" \
+  "debug panel minimized state did not restore to false" \
   "browser-render-proof.json" \
   "browser-render-proof.png" \
   "http.createServer" \
   "page.goto(localServer.url" \
   "point_count is 0" \
   "animation_frame_count is 0" \
+  "renderer_ready !== true" \
   "GR4PH1C4_BROWSER_RENDER_SMOKE_TEST_PASS"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/browser-render-smoke-test.js; then
     echo "smoke failed: browser render smoke test missing $expected" >&2
@@ -563,6 +575,10 @@ for expected in \
   '"color_axis_numbers": "#93c5fd"' \
   '"color_points": "#7df9ff"' \
   '"color_data_lines": "#38bdf8"' \
+  '"color_panel_accent": "#67e8f9"' \
+  '"color_text": "#dffcff"' \
+  '"colors": {' \
+  '"windows_minimized": {' \
   '"color_source_background": "default"' \
   '"last_error": null'; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/three-ocean-state.json; then
@@ -579,7 +595,7 @@ if (state.pass !== '7A-visible-ocean-render-proof') throw new Error(`pass was ${
 if (state.point_count < 10000) throw new Error(`point_count ${state.point_count} is less than 10000`);
 if (!state.inspected_three_exports.includes('WebGLRenderer')) throw new Error('missing inspected WebGLRenderer export');
 if (state.inspected_three_exports.includes('Vector3') || state.inspected_three_exports.includes('GridHelper')) throw new Error('inspected exports incorrectly include non-exported Vector3/GridHelper');
-for (const field of ['color_background', 'color_graph_lines', 'color_axis_numbers', 'color_points', 'color_data_lines', 'color_source_background', 'color_source_graph_lines', 'color_source_axis_numbers', 'color_source_points', 'color_source_data_lines', 'renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'three_capabilities', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
+for (const field of ['color_background', 'color_graph_lines', 'color_axis_numbers', 'color_points', 'color_data_lines', 'color_panel_accent', 'color_text', 'colors_json', 'color_source_background', 'color_source_graph_lines', 'color_source_axis_numbers', 'color_source_points', 'color_source_data_lines', 'color_source_panel_accent', 'color_source_text', 'window_control_panel_minimized', 'window_debug_panel_minimized', 'windows_minimized_json', 'renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'three_capabilities', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
   if (!state.debug_panel_fields.includes(field)) throw new Error(`missing debug field ${field}`);
 }
 NODE
@@ -600,7 +616,10 @@ for expected in \
   "VISIBLE_PIXEL_SAMPLE_REQUIRED" \
   "SCREENSHOT_RENDER_PROOF_REQUIRED" \
   "BROWSER_RENDER_PROOF_JSON_REQUIRED" \
-  "GRID_HELPER_NOT_REQUIRED" \
+  "BROWSER_CONTROL_PROOF_REQUIRED" \
+  "BROWSER_COLOR_CONTROL_PROOF_REQUIRED" \
+  "BROWSER_WINDOW_MINIMIZE_PROOF_REQUIRED" \
+  "GRID_HELPER_NOT_USED" \
   "OPTIONAL_HELPERS_CANNOT_BLOCK_RENDER" \
   "NO_REMOTE_RUNTIME_REQUIRED" \
   "node dist/main.js three-ocean-points-demo" \
