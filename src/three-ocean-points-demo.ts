@@ -27,6 +27,8 @@ const REQUIRED_PROOF_STRINGS = [
   "GR4PH1C4_THREE_OCEAN_VISIBLE_BASELINE",
   "OCEAN_POINT_FIELD_GENERATED",
   "OCEAN_POINT_COUNT_9000_OR_MORE",
+  "THREE_REQUIRED_CONSTRUCTORS_VERIFIED",
+  "THREE_GRIDHELPER_OPTIONAL_MANUAL_FALLBACK",
   "THREE_LOCAL_VENDOR_PRESENT",
   "WEBGL_RENDERER_DECLARED",
   "SCENE_CAMERA_RENDERER_DECLARED",
@@ -46,6 +48,19 @@ const THREE_OCEAN_STATE = {
   local_bundle: "vendor/three.min.js",
   point_count: POINT_COUNT,
   grid_size: POINT_GRID_SIZE,
+  three_source: "local vendor/three package with required WebGL ocean API constructors",
+  required_three_constructors: [
+    "WebGLRenderer",
+    "Scene",
+    "PerspectiveCamera",
+    "BufferGeometry",
+    "Float32BufferAttribute",
+    "PointsMaterial",
+    "Points",
+    "LineBasicMaterial",
+    "LineSegments",
+  ],
+  optional_three_helpers: ["GridHelper"],
   point_material: "high-contrast cyan/white additive THREE.PointsMaterial",
   camera: { fov: 58, x: 52, y: 34, z: 72, target: { x: 0, y: 0, z: 0 } },
   proof_state_global: "window.GR4PH1C4_OCEAN_PROOF",
@@ -86,6 +101,9 @@ function proofLines(): string[] {
     "brave dist/three-ocean-points-demo/index.html",
     "",
     `point_count=${POINT_COUNT}`,
+    "required constructors: WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry, Float32BufferAttribute, PointsMaterial, Points, LineBasicMaterial, LineSegments",
+    "GridHelper optional: manual BufferGeometry + LineSegments fallback enabled",
+    "render proof: attached canvas, nonzero point_count, increasing animation_frame_count, nonblank pixels, last_error null",
     "title=Commandable Ocean Field",
     "runtime=local file with dist/three-ocean-points-demo/vendor/three.min.js",
   ];
@@ -145,6 +163,7 @@ function renderThreeOceanHtml(): string {
       var camera = null;
       var oceanPoints = null;
       var positions = null;
+      var renderProofStarted = false;
       var proof = window.GR4PH1C4_OCEAN_PROOF = {
         rendererReady: false,
         canvasWidth: 0,
@@ -155,7 +174,10 @@ function renderThreeOceanHtml(): string {
         cameraReady: false,
         pointCount: 0,
         animationFrameCount: 0,
-        lastError: null
+        lastError: null,
+        rendererDomAttached: false,
+        renderProofPassed: false,
+        renderProofPixelSample: null
       };
 
       window.addEventListener("error", function (event) {
@@ -167,10 +189,13 @@ function renderThreeOceanHtml(): string {
 
       updateDebugPanel();
 
-      try {
-        if (!proof.threeLoaded) throw new Error("Three.js did not load from vendor/three.min.js");
+      initializeOcean();
+
+      function initializeOcean() {
+        if (!proof.threeLoaded) failRender("Three.js did not load from vendor/three.min.js");
+        verifyRequiredThreeConstructors();
         proof.webglReady = hasWebGLSupport();
-        if (!proof.webglReady) throw new Error("WebGL is not available in this browser, so the point ocean cannot render.");
+        if (!proof.webglReady) failRender("WebGL is not available in this browser, so the point ocean cannot render.");
 
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x081426);
@@ -192,11 +217,6 @@ function renderThreeOceanHtml(): string {
         proof.canvasWidth = renderer.domElement.width;
         proof.canvasHeight = renderer.domElement.height;
 
-        var grid = new THREE.GridHelper(120, 24, 0x1d4ed8, 0x0f766e);
-        grid.position.y = -5.4;
-        scene.add(grid);
-        scene.add(new THREE.AxesHelper(18));
-
         var geometry = new THREE.BufferGeometry();
         positions = new Float32Array(POINT_COUNT * 3);
         var colors = new Float32Array(POINT_COUNT * 3);
@@ -217,9 +237,9 @@ function renderThreeOceanHtml(): string {
             colorCursor += 3;
           }
         }
-        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-        geometry.computeBoundingSphere();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        if (typeof geometry.computeBoundingSphere === "function") geometry.computeBoundingSphere();
 
         var material = new THREE.PointsMaterial({
           size: 0.48,
@@ -230,21 +250,21 @@ function renderThreeOceanHtml(): string {
         });
         oceanPoints = new THREE.Points(geometry, material);
         scene.add(oceanPoints);
-        proof.pointCount = geometry.getAttribute("position").count;
-        if (proof.pointCount <= 0) throw new Error("Point geometry contains zero vertices.");
+        proof.pointCount = getGeometryAttribute(geometry, "position").count;
+        if (proof.pointCount <= 0) failRender("Point geometry contains zero vertices.");
+
+        addGrid(scene, THREE);
 
         window.addEventListener("resize", resizeRenderer);
         updateDebugPanel();
         requestAnimationFrame(animate);
-      } catch (error) {
-        reportError(error && error.message ? error.message : String(error));
       }
 
       function animate(time) {
         try {
           proof.animationFrameCount += 1;
           var seconds = time * 0.001;
-          var attr = oceanPoints.geometry.getAttribute("position");
+          var attr = getGeometryAttribute(oceanPoints.geometry, "position");
           for (var index = 0; index < POINT_COUNT; index += 1) {
             var offset = index * 3;
             attr.array[offset + 1] = waveHeight(attr.array[offset], attr.array[offset + 2], seconds);
@@ -254,11 +274,94 @@ function renderThreeOceanHtml(): string {
           renderer.render(scene, camera);
           proof.canvasWidth = renderer.domElement.width;
           proof.canvasHeight = renderer.domElement.height;
+          proof.rendererDomAttached = Boolean(renderer.domElement && renderer.domElement.parentNode === container);
+          if (!renderProofStarted && proof.animationFrameCount >= 8) {
+            renderProofStarted = true;
+            runRenderProof();
+          }
           updateDebugPanel();
           requestAnimationFrame(animate);
         } catch (error) {
-          reportError(error && error.message ? error.message : String(error));
+          failRender(error && error.message ? error.message : String(error));
         }
+      }
+
+      function verifyRequiredThreeConstructors() {
+        var requiredConstructors = [
+          "WebGLRenderer",
+          "Scene",
+          "PerspectiveCamera",
+          "BufferGeometry",
+          "Float32BufferAttribute",
+          "PointsMaterial",
+          "Points",
+          "LineBasicMaterial",
+          "LineSegments"
+        ];
+        var missing = requiredConstructors.filter(function (name) {
+          return typeof THREE[name] !== "function";
+        });
+        if (missing.length > 0) {
+          failRender("Three.js vendor/three.min.js is missing required constructor(s): " + missing.join(", "));
+        }
+      }
+
+      function addGrid(scene, THREE) {
+        var grid;
+        if (typeof THREE.GridHelper === "function") {
+          grid = new THREE.GridHelper(120, 24, 0x1d4ed8, 0x0f766e);
+          grid.position.y = -5.4;
+          scene.add(grid);
+          return grid;
+        }
+
+        var geometry = new THREE.BufferGeometry();
+        var vertices = [];
+        var size = 120;
+        var divisions = 24;
+        var step = size / divisions;
+        var half = size / 2;
+
+        for (var i = 0; i <= divisions; i += 1) {
+          var p = -half + i * step;
+          vertices.push(-half, -5.4, p, half, -5.4, p);
+          vertices.push(p, -5.4, -half, p, -5.4, half);
+        }
+
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+
+        var material = new THREE.LineBasicMaterial({
+          color: 0x335577,
+          transparent: true,
+          opacity: 0.35
+        });
+
+        grid = new THREE.LineSegments(geometry, material);
+        scene.add(grid);
+        return grid;
+      }
+
+      function getGeometryAttribute(geometry, name) {
+        if (typeof geometry.getAttribute === "function") return geometry.getAttribute(name);
+        return geometry.attributes[name];
+      }
+
+      function runRenderProof() {
+        if (proof.pointCount <= 0) failRender("Render proof failed: point_count is 0");
+        if (proof.animationFrameCount <= 0) failRender("Render proof failed: animation_frame_count stayed 0");
+        if (!renderer || !renderer.domElement || renderer.domElement.parentNode !== container) {
+          failRender("Render proof failed: renderer DOM element is not attached");
+        }
+        if (proof.lastError !== null) failRender("Render proof failed: last_error is non-null: " + proof.lastError);
+
+        var gl = renderer.getContext ? renderer.getContext() : renderer.gl;
+        var pixel = new Uint8Array(4);
+        gl.readPixels(Math.floor(renderer.domElement.width / 2), Math.floor(renderer.domElement.height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        proof.renderProofPixelSample = [pixel[0], pixel[1], pixel[2], pixel[3]];
+        if (pixel[0] === 0 && pixel[1] === 0 && pixel[2] === 0 && pixel[3] === 0) {
+          failRender("Render proof failed: sampled pixels are blank");
+        }
+        proof.renderProofPassed = true;
       }
 
       function waveHeight(x, z, time) {
@@ -288,6 +391,11 @@ function renderThreeOceanHtml(): string {
         fallback.style.display = "block";
         fallback.textContent = "WebGL/render proof error: " + message;
         console.error(message);
+      }
+
+      function failRender(message) {
+        reportError(message);
+        throw new Error(message);
       }
 
       function updateDebugPanel() {
@@ -346,6 +454,14 @@ const htmlNeedles = [
   "requestAnimationFrame",
   "THREE.WebGLRenderer",
   "THREE.Points",
+  "THREE.LineBasicMaterial",
+  "THREE.LineSegments",
+  "verifyRequiredThreeConstructors",
+  "addGrid",
+  "runRenderProof",
+  "rendererDomAttached",
+  "renderProofPassed",
+  "renderProofPixelSample",
   "canvas",
   "renderer_ready",
   "canvas_width",
@@ -373,6 +489,17 @@ if (!/new THREE\\.PerspectiveCamera/.test(html)) {
 }
 if (!/new THREE\\.BufferGeometry/.test(html) || !/setAttribute\\(\"position\"/.test(html)) {
   fail("index.html does not build nonzero point BufferGeometry positions");
+}
+
+for (const requiredConstructor of ["WebGLRenderer", "Scene", "PerspectiveCamera", "BufferGeometry", "Float32BufferAttribute", "PointsMaterial", "Points", "LineBasicMaterial", "LineSegments"]) {
+  if (!html.includes(requiredConstructor)) fail("index.html does not verify required constructor: " + requiredConstructor);
+  if (!fs.readFileSync(path.join(root, "vendor", "three.min.js"), "utf8").includes(requiredConstructor + ":")) fail("vendor three bundle does not export required constructor: " + requiredConstructor);
+}
+if (!/typeof THREE\.GridHelper === \"function\"/.test(html) || !/new THREE\.LineSegments/.test(html)) {
+  fail("index.html must treat GridHelper as optional and provide a LineSegments fallback");
+}
+for (const renderProofNeedle of ["point_count is 0", "animation_frame_count stayed 0", "renderer DOM element is not attached", "last_error is non-null", "readPixels"]) {
+  if (!html.includes(renderProofNeedle)) fail("index.html render proof is missing check: " + renderProofNeedle);
 }
 
 let state;
