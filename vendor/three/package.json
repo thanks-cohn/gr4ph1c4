@@ -1,7 +1,7 @@
 {
   "name": "three",
   "version": "0.180.0-local",
-  "description": "Local Three.js-compatible browser bundle for the Gr4ph1c4 PASS 6 ocean points demo.",
+  "description": "Single local Three.js-compatible browser bundle exporting the full required WebGL ocean renderer API.",
   "main": "build/three.min.js",
   "license": "MIT"
 }

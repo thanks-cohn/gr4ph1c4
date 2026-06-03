@@ -457,6 +457,14 @@ for expected in \
   "requestAnimationFrame" \
   "THREE.WebGLRenderer" \
   "THREE.Points" \
+  "THREE.LineBasicMaterial" \
+  "THREE.LineSegments" \
+  "verifyRequiredThreeConstructors" \
+  "addGrid" \
+  "runRenderProof" \
+  "rendererDomAttached" \
+  "renderProofPassed" \
+  "renderProofPixelSample" \
   "canvas" \
   "renderer_ready" \
   "canvas_width" \
@@ -471,7 +479,14 @@ for expected in \
   "appendChild(renderer.domElement)" \
   "new THREE.PerspectiveCamera" \
   "new THREE.BufferGeometry" \
+  "new THREE.Float32BufferAttribute" \
   "new THREE.Points" \
+  "new THREE.LineSegments" \
+  "typeof THREE.GridHelper" \
+  "renderer DOM element is not attached" \
+  "animation_frame_count stayed 0" \
+  "last_error is non-null" \
+  "readPixels" \
   "vendor/three.min.js"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html missing $expected" >&2
@@ -490,6 +505,12 @@ if ! grep -Fiq 'Three.js' dist/three-ocean-points-demo/vendor/three.min.js || ! 
   echo "smoke failed: three vendor bundle missing Three.js global evidence" >&2
   exit 1
 fi
+for expected_export in WebGLRenderer Scene PerspectiveCamera BufferGeometry Float32BufferAttribute PointsMaterial Points LineBasicMaterial LineSegments; do
+  if ! grep -Fq "$expected_export" dist/three-ocean-points-demo/vendor/three.min.js; then
+    echo "smoke failed: three vendor bundle missing required export $expected_export" >&2
+    exit 1
+  fi
+done
 
 for expected in \
   '"demo": "three-ocean-points"' \
@@ -519,6 +540,8 @@ for expected in \
   "GR4PH1C4_THREE_OCEAN_VISIBLE_BASELINE" \
   "OCEAN_POINT_FIELD_GENERATED" \
   "OCEAN_POINT_COUNT_9000_OR_MORE" \
+  "THREE_REQUIRED_CONSTRUCTORS_VERIFIED" \
+  "THREE_GRIDHELPER_OPTIONAL_MANUAL_FALLBACK" \
   "THREE_LOCAL_VENDOR_PRESENT" \
   "WEBGL_RENDERER_DECLARED" \
   "SCENE_CAMERA_RENDERER_DECLARED" \
