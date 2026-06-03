@@ -1,5 +1,5 @@
 # Gr4ph1c4
-
+ 
 
 <p align="center">
   <img src="sharx_mascot.png" alt="the_gr4ph1c4_mascot_sharx" width="720"> 
