@@ -18,6 +18,7 @@ import { renderHtml } from "./render-html";
 import { runChartJsSineDemo } from "./chartjs-sine-demo";
 import { parseOceanColorControls } from "./color-controls";
 import { runThreeOceanPointsDemo } from "./three-ocean-points-demo";
+import { runLiveProbabilitySeaDemo } from "./live-probability-sea-demo";
 import { emitSineStream, runSineDemo } from "./sine-demo";
 
 const { mkdir, readFile, writeFile } = fsPromises as {
@@ -44,6 +45,7 @@ function usage(): string {
     "  node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo",
     "  node dist/main.js chartjs-sine-demo",
     "  node dist/main.js three-ocean-points-demo",
+    "  node dist/main.js live-probability-sea",
   ].join("\n");
 }
 
@@ -293,6 +295,20 @@ async function main(argv: string[]): Promise<void> {
   if (command === "three-ocean-points-demo") {
     const colorControls = parseOceanColorControls(argv.slice(1));
     await runThreeOceanPointsDemo(colorControls);
+    return;
+  }
+
+  if (command === "live-probability-sea") {
+    if (filePath !== undefined) {
+      throw new G4Error({
+        code: "GR4_LPS_ARGS",
+        where: "command line",
+        what: "live-probability-sea received extra arguments",
+        why: "The live probability sea demo uses examples/live-probability-sea/seed.json and writes generated output to dist/live-probability-sea.",
+        next: "Run `node dist/main.js live-probability-sea` with no arguments.",
+      });
+    }
+    await runLiveProbabilitySeaDemo();
     return;
   }
 

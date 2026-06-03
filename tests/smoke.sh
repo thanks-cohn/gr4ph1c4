@@ -698,5 +698,46 @@ fi
 
 node dist/main.js three-ocean-points-demo > /tmp/gr4ph1c4-ocean-default-after-color-tests.log
 
+
+
+node dist/main.js live-probability-sea > dist/live-probability-sea.stdout.log
+for output_file in \
+  dist/live-probability-sea/index.html \
+  dist/live-probability-sea/style.css \
+  dist/live-probability-sea/main.js \
+  dist/live-probability-sea/ingest.js \
+  dist/live-probability-sea/streams/probability-demo.jsonl \
+  dist/live-probability-sea/proof.log; do
+  if [ ! -f "$output_file" ]; then
+    echo "smoke failed: live probability sea output missing $output_file" >&2
+    exit 1
+  fi
+done
+live_probability_line_count=$(wc -l < dist/live-probability-sea/streams/probability-demo.jsonl | tr -d ' ')
+if [ "$live_probability_line_count" -lt "600" ]; then
+  echo "smoke failed: live probability sea stream line count was $live_probability_line_count not at least 600" >&2
+  exit 1
+fi
+for expected in \
+  "GR4PH1C4_LIVE_PROBABILITY_SEA_SOURCE_ONLY" \
+  "records generated: 600" \
+  "entities: 24" \
+  "window.__G4_LIVE_PROBABILITY_SEA_PROOF__" \
+  "node dist/live-probability-sea/browser-render-smoke-test.js"; do
+  if ! grep -Fq "$expected" dist/live-probability-sea/proof.log; then
+    echo "smoke failed: live probability sea proof.log missing $expected" >&2
+    exit 1
+  fi
+done
+if [ "$(node dist/live-probability-sea/smoke-test.js)" != "GR4PH1C4_LIVE_PROBABILITY_SEA_STATIC_SMOKE_TEST_PASS" ]; then
+  echo "smoke failed: live probability sea static smoke test did not pass" >&2
+  exit 1
+fi
+node dist/live-probability-sea/browser-render-smoke-test.js > dist/live-probability-sea.browser-smoke.log
+if ! grep -Fq "GR4PH1C4_LIVE_PROBABILITY_SEA_BROWSER_RENDER_SMOKE_TEST_PASS" dist/live-probability-sea.browser-smoke.log; then
+  echo "smoke failed: live probability sea browser render smoke test did not pass" >&2
+  exit 1
+fi
+
 printf '%s\n' 'PASS GR4PH1C4 V0 PASS 6 smoke' 
 

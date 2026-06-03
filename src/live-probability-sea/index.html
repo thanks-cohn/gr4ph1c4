@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Probability Sea</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <canvas id="sea" width="1100" height="680" aria-label="Live probability sea canvas"></canvas>
+    <section class="panel controls" aria-label="Playback controls">
+      <h1>Live Probability Sea</h1>
+      <div class="buttons">
+        <button id="play" type="button">Pause</button>
+        <button id="reset" type="button">Reset</button>
+      </div>
+      <label>Timeline <input id="scrubber" type="range" min="0" max="1" step="0.001" value="0"></label>
+      <p id="status">Loading stream...</p>
+    </section>
+    <section class="panel inspector" aria-label="Inspector">
+      <h2>Inspector</h2>
+      <dl id="inspector"></dl>
+    </section>
+  </main>
+  <script src="ingest.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

@@ -213,3 +213,16 @@ Supported color values include named colors, short hex, long hex, bare long hex,
 - `--data-lines` or `--line`
 - `--panel-accent` or `--accent`
 - `--text`
+
+### Live Probability Sea demo
+
+`live-probability-sea` is a small source-only browser demo that turns a tiny seed config into a deterministic probability stream at run time. The checked-in fixture is `examples/live-probability-sea/seed.json`; the generated JSONL stream is written to `dist/live-probability-sea/streams/probability-demo.jsonl` by `node dist/main.js live-probability-sea` and is intentionally not committed.
+
+Run it with:
+
+```sh
+npm run build
+node dist/main.js live-probability-sea
+node dist/live-probability-sea/smoke-test.js
+node dist/live-probability-sea/browser-render-smoke-test.js
+```
