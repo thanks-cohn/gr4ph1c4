@@ -1,4 +1,4 @@
-# Gr4ph1c4
+# GR4PH1C4
 
 <p align="center">
   <img src="sharx_mascot.png" alt="the_gr4ph1c4_mascot_sharx" width="720">
