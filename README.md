@@ -128,7 +128,7 @@ dist/chartjs-sine-demo/index.html
 
 `three-ocean-points-demo` proves local Three.js access for a separate renderer capability proof.
 It renders a deterministic animated 3D ocean point field from fixed x/z grid coordinates and wave math.
-It runs locally from `dist/three-ocean-points-demo/index.html`; no server is required.
+It is fully local/offline; the browser smoke test serves `dist/three-ocean-points-demo/index.html` from a temporary local HTTP server to avoid file-origin issues.
 No real telemetry, database, or influx stream is used.
 The Chart.js demo remains separate as `chartjs-sine-demo` and writes to `dist/chartjs-sine-demo/`.
 

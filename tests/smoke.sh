@@ -476,6 +476,7 @@ for expected in \
   "webgl_ready" \
   "scene_ready" \
   "camera_ready" \
+  "three_capabilities" \
   "point_count" \
   "animation_frame_count" \
   "first_render_completed" \
@@ -488,6 +489,7 @@ for expected in \
   "new THREE.PerspectiveCamera" \
   "new THREE.BufferGeometry" \
   "new THREE.Points" \
+  "THREE.Float32BufferAttribute" \
   "try {" \
   "THREE.GridHelper" \
   "Optional GridHelper failed" \
@@ -499,7 +501,7 @@ for expected in \
   fi
 done
 
-for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls; do
+for forbidden in cdn.jsdelivr unpkg.com https:// http:// WebSocket InfluxDB OrbitControls "new THREE.Vector3"; do
   if grep -Fq "$forbidden" dist/three-ocean-points-demo/index.html; then
     echo "smoke failed: three ocean index.html contains forbidden remote/control/fake evidence $forbidden" >&2
     exit 1
@@ -512,6 +514,10 @@ for expected in \
   "GR4PH1C4_CAPTURE_RENDER_PROOF" \
   "browser-render-proof.json" \
   "browser-render-proof.png" \
+  "http.createServer" \
+  "page.goto(localServer.url" \
+  "point_count is 0" \
+  "animation_frame_count is 0" \
   "GR4PH1C4_BROWSER_RENDER_SMOKE_TEST_PASS"; do
   if ! grep -Fq "$expected" dist/three-ocean-points-demo/browser-render-smoke-test.js; then
     echo "smoke failed: browser render smoke test missing $expected" >&2
@@ -549,8 +555,10 @@ const fs = require('node:fs');
 const state = JSON.parse(fs.readFileSync('dist/three-ocean-points-demo/three-ocean-state.json', 'utf8'));
 if (state.demo !== 'three-ocean-points') throw new Error(`demo was ${state.demo}`);
 if (state.pass !== '7A-visible-ocean-render-proof') throw new Error(`pass was ${state.pass}`);
-if (state.point_count < 9000) throw new Error(`point_count ${state.point_count} is less than 9000`);
-for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
+if (state.point_count < 10000) throw new Error(`point_count ${state.point_count} is less than 10000`);
+if (!state.inspected_three_exports.includes('WebGLRenderer')) throw new Error('missing inspected WebGLRenderer export');
+if (state.inspected_three_exports.includes('Vector3') || state.inspected_three_exports.includes('GridHelper')) throw new Error('inspected exports incorrectly include non-exported Vector3/GridHelper');
+for (const field of ['renderer_ready', 'canvas_width', 'canvas_height', 'three_loaded', 'webgl_ready', 'scene_ready', 'camera_ready', 'three_capabilities', 'point_count', 'animation_frame_count', 'first_render_completed', 'render_loop_alive', 'visible_pixel_sample_passed', 'non_background_pixel_count', 'screenshot_data_url_length', 'last_error']) {
   if (!state.debug_panel_fields.includes(field)) throw new Error(`missing debug field ${field}`);
 }
 NODE
