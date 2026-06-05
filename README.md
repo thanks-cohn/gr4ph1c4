@@ -317,3 +317,19 @@ Run the live probability sea browser render proof:
 Generated proof file:
 
     dist/live-probability-sea/browser-render-proof.json
+
+## Slides demo
+
+Commands:
+
+    npm install
+    npm run build
+    npm run slides:demo
+
+Open:
+
+    xdg-open dist/slides-basic/visual-proof.html
+    xdg-open dist/slides-basic/demo-index.html
+    xdg-open dist/slides-basic/index.html
+
+`visual-proof.html` shows every implemented slide feature on one page. `demo-index.html` is the visual gallery with feature cards and links into the deck. `index.html` is the actual generated presentation cartridge. The generated `dist/slides-basic/` folder is portable, uses local files only, and can be opened directly from `file://` without a server.

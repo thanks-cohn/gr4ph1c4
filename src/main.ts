@@ -16,6 +16,7 @@ import { ModuleRegistry } from "./module-registry";
 import { parseG4 } from "./parser";
 import { renderHtml } from "./render-html";
 import { runChartJsSineDemo } from "./chartjs-sine-demo";
+import { generateSlidesDemo } from "./slides";
 import { parseOceanColorControls } from "./color-controls";
 import { runThreeOceanPointsDemo } from "./three-ocean-points-demo";
 import { emitSineStream, runSineDemo } from "./sine-demo";
@@ -38,6 +39,7 @@ function usage(): string {
     "  node dist/main.js doctor",
     "  node dist/main.js parse <file.g4> --json",
     "  node dist/main.js render <file.g4> --out <directory>",
+    "  node dist/main.js slides <input.g4> --out <directory>",
     "  node dist/main.js rollback-demo",
     "  node dist/main.js snapshot-demo",
     "  node dist/main.js emit-sine-stream",
@@ -74,7 +76,7 @@ function parseOptions(args: string[]): CliOptions {
       code: "GR4_E_UNKNOWN_FLAG",
       where: "command line",
       what: `unknown flag or argument ${arg}`,
-      why: "PASS 1 only accepts --json for parse and --out for render.",
+      why: "GR4PH1C4 accepts --json for parse and --out for render/slides.",
       next: usage(),
     });
   }
@@ -293,6 +295,25 @@ async function main(argv: string[]): Promise<void> {
   if (command === "three-ocean-points-demo") {
     const colorControls = parseOceanColorControls(argv.slice(1));
     await runThreeOceanPointsDemo(colorControls);
+    return;
+  }
+
+  if (command === "slides") {
+    const slidesInput = filePath && !filePath.startsWith("--") ? filePath : undefined;
+    const slidesOptionArgs = slidesInput ? rest : argv.slice(1);
+    const options = parseOptions(slidesOptionArgs);
+    const result = generateSlidesDemo(slidesInput, options.out);
+    console.log("GR4PH1C4 slides cartridge generated");
+    console.log(`source: ${slidesInput}`);
+    console.log(`output directory: ${result.outDir}`);
+    console.log("generated files:");
+    for (const generatedFile of result.generatedFiles) {
+      console.log(`  ${generatedFile}`);
+    }
+    console.log("local open commands:");
+    for (const openCommand of result.localOpenCommands) {
+      console.log(`  ${openCommand}`);
+    }
     return;
   }
 
