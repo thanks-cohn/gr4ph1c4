@@ -39,8 +39,8 @@ Paste this from the repository root:
     node dist/main.js doctor
 
     echo
-    echo "== render included classroom report example =="
-    node dist/main.js render examples/classroom-report.g4 --out dist/site
+    echo "== generate Three.js ocean points demo =="
+    node dist/main.js three-ocean-points-demo
 
     echo
     echo "== run smoke tests =="
@@ -50,7 +50,7 @@ Paste this from the repository root:
     echo "== start local browser server =="
     HOST="127.0.0.1"
     PORT="${PORT:-4173}"
-    SITE_DIR="dist/site"
+    SITE_DIR="dist/three-ocean-points-demo"
     URL="http://${HOST}:${PORT}/"
 
     if [ ! -d "$SITE_DIR" ]; then
@@ -111,7 +111,7 @@ Expected result:
     npm install runs
     the TypeScript CLI builds
     doctor passes
-    the included .g4 example renders
+    the local Three.js ocean points demo generates
     the smoke tests run
     a local browser server starts
     Chromium, Chrome, Firefox, or the system browser opens automatically
@@ -122,7 +122,7 @@ The page is hosted here:
 
 The generated file is here:
 
-    dist/site/index.html
+    dist/three-ocean-points-demo/index.html
 
 If the browser does not open automatically, copy this into Chromium, Chrome, Firefox, or another browser:
 
@@ -134,11 +134,11 @@ Use this if you only want to build and render the included example without start
 
     npm install
     npm run build
-    node dist/main.js render examples/classroom-report.g4 --out dist/site
+    node dist/main.js three-ocean-points-demo
 
 Then open this file in a browser:
 
-    dist/site/index.html
+    dist/three-ocean-points-demo/index.html
 
 Optional quick health check:
 
@@ -223,7 +223,7 @@ Parse a `.g4` file and print the AST as JSON:
 
 Render a `.g4` file into an output directory containing `index.html`:
 
-    node dist/main.js render examples/classroom-report.g4 --out dist/site
+    node dist/main.js three-ocean-points-demo
 
 Run the rollback proof demo:
 
