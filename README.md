@@ -14,7 +14,22 @@ This repository is a **V0 proof-of-capability project**. It currently includes o
 
 Use this if you want the project to install, build, test, render the included example, start a local browser server, and open the generated page automatically.
 
-Paste this from the repository root:
+Before you paste the launcher, you need:
+
+    git
+    node
+    npm
+    python3
+    a modern browser with WebGL enabled
+
+First get the repo and enter it:
+
+    git clone git@github.com:thanks-cohn/GR4PH1C4.git
+    cd GR4PH1C4
+
+If you downloaded the ZIP instead, unzip it and open a terminal inside the GR4PH1C4 folder.
+
+Then paste this from the repository root:
 
     bash <<'DEMO'
     set -euo pipefail
