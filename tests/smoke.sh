@@ -698,5 +698,23 @@ fi
 
 node dist/main.js three-ocean-points-demo > /tmp/gr4ph1c4-ocean-default-after-color-tests.log
 
+
+node dist/main.js slides examples/slides/basic-slides.g4 --out dist/slides-basic > dist/slides-basic.stdout.log
+if [ "$(node dist/slides-basic/smoke-test.js)" != "GR4PH1C4_SLIDES_BASIC_SMOKE_OK" ]; then
+  echo "smoke failed: generated slides smoke test did not pass" >&2
+  exit 1
+fi
+for expected in \
+  "GR4PH1C4 slides cartridge generated" \
+  "dist/slides-basic/index.html" \
+  "xdg-open dist/slides-basic/visual-proof.html" \
+  "xdg-open dist/slides-basic/demo-index.html" \
+  "xdg-open dist/slides-basic/index.html"; do
+  if ! grep -Fq "$expected" dist/slides-basic.stdout.log; then
+    echo "smoke failed: slides stdout missing $expected" >&2
+    exit 1
+  fi
+done
+
 printf '%s\n' 'PASS GR4PH1C4 V0 PASS 6 smoke' 
 
