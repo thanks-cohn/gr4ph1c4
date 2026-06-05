@@ -8,37 +8,145 @@ Gr4ph1c4 is a live visual command language. The long-term idea is to let a `.g4`
 
 This repository is a **V0 proof-of-capability project**. It currently includes one real `.g4` parsing/rendering vertical slice plus several local demo proofs:
 
-```text
-.g4 input -> parser -> AST -> HTML/SVG renderer -> exported index.html -> smoke test inspection
-```
+    .g4 input -> parser -> AST -> HTML/SVG renderer -> exported index.html -> smoke test inspection
 
-## Simple startup for most people
+## One-paste startup for most people
 
-Use these commands if you just want to install, build, render the included example, and open the generated page.
+Use this if you want the project to install, build, test, render the included example, start a local browser server, and open the generated page automatically.
 
-```bash
-npm install
-npm run build
-node dist/main.js render examples/classroom-report.g4 --out dist/site
-```
+Paste this from the repository root:
+
+    bash <<'DEMO'
+    set -euo pipefail
+
+    echo "== GR4PH1C4 one-paste launcher =="
+
+    if [ ! -f package.json ]; then
+      echo "ERROR: run this from the GR4PH1C4 repository root."
+      exit 1
+    fi
+
+    echo
+    echo "== install dependencies =="
+    npm install
+
+    echo
+    echo "== build project =="
+    npm run build
+
+    echo
+    echo "== run doctor check =="
+    node dist/main.js doctor
+
+    echo
+    echo "== render included classroom report example =="
+    node dist/main.js render examples/classroom-report.g4 --out dist/site
+
+    echo
+    echo "== run smoke tests =="
+    npm test
+
+    echo
+    echo "== start local browser server =="
+    HOST="127.0.0.1"
+    PORT="${PORT:-4173}"
+    SITE_DIR="dist/site"
+    URL="http://${HOST}:${PORT}/"
+
+    if [ ! -d "$SITE_DIR" ]; then
+      echo "ERROR: missing $SITE_DIR"
+      exit 1
+    fi
+
+    python3 -m http.server "$PORT" --bind "$HOST" --directory "$SITE_DIR" >/tmp/gr4ph1c4-http.log 2>&1 &
+    SERVER_PID="$!"
+
+    cleanup() {
+      if kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+        kill "$SERVER_PID" >/dev/null 2>&1 || true
+      fi
+    }
+    trap cleanup EXIT
+
+    sleep 1
+
+    echo
+    echo "== open browser =="
+    echo "Local URL: $URL"
+
+    if command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "$URL" >/dev/null 2>&1 || true
+    elif command -v google-chrome-stable >/dev/null 2>&1; then
+      google-chrome-stable "$URL" >/dev/null 2>&1 || true
+    elif command -v google-chrome >/dev/null 2>&1; then
+      google-chrome "$URL" >/dev/null 2>&1 || true
+    elif command -v chromium >/dev/null 2>&1; then
+      chromium "$URL" >/dev/null 2>&1 || true
+    elif command -v chromium-browser >/dev/null 2>&1; then
+      chromium-browser "$URL" >/dev/null 2>&1 || true
+    elif command -v firefox >/dev/null 2>&1; then
+      firefox "$URL" >/dev/null 2>&1 || true
+    else
+      echo "No browser opener found."
+      echo "Open this URL manually:"
+      echo "$URL"
+    fi
+
+    echo
+    echo "GR4PH1C4 is being served from:"
+    echo "$SITE_DIR"
+    echo
+    echo "Browser URL:"
+    echo "$URL"
+    echo
+    echo "Press Ctrl+C to stop the local server."
+
+    while true; do
+      sleep 3600
+    done
+    DEMO
+
+Expected result:
+
+    npm install runs
+    the TypeScript CLI builds
+    doctor passes
+    the included .g4 example renders
+    the smoke tests run
+    a local browser server starts
+    Chromium, Chrome, Firefox, or the system browser opens automatically
+
+The page is hosted here:
+
+    http://127.0.0.1:4173/
+
+The generated file is here:
+
+    dist/site/index.html
+
+If the browser does not open automatically, copy this into Chromium, Chrome, Firefox, or another browser:
+
+    http://127.0.0.1:4173/
+
+## Fast manual startup
+
+Use this if you only want to build and render the included example without starting a local server.
+
+    npm install
+    npm run build
+    node dist/main.js render examples/classroom-report.g4 --out dist/site
 
 Then open this file in a browser:
 
-```text
-dist/site/index.html
-```
+    dist/site/index.html
 
 Optional quick health check:
 
-```bash
-node dist/main.js doctor
-```
+    node dist/main.js doctor
 
 Optional full smoke test:
 
-```bash
-npm test
-```
+    npm test
 
 ## What the main `.g4` slice supports
 
@@ -61,6 +169,7 @@ The repository also contains local proof demos that exercise additional V0 capab
 - `emit-sine-stream` and `sine-demo`: emit deterministic local JSONL sine records and render the retained window as an inspectable SVG control demo.
 - `chartjs-sine-demo`: generates a local/offline Chart.js sine-wave browser demo.
 - `three-ocean-points-demo`: generates a local/offline Three.js animated ocean point-field browser demo with optional color controls.
+- `live-probability-sea`: generates a local/offline animated probability sea proof.
 
 ## What is not implemented yet
 
@@ -78,13 +187,11 @@ No fake claims are made in this V0 proof. These features are **not** implemented
 
 Parser and CLI failures use breadcrumb-style errors:
 
-```text
-error: GR4_E_...
-where:
-what:
-why:
-next:
-```
+    error: GR4_E_...
+    where:
+    what:
+    why:
+    next:
 
 `examples/bad-syntax.g4` is intentionally invalid and is checked by the smoke test to ensure this error shape is emitted.
 
@@ -92,117 +199,79 @@ next:
 
 Install dependencies:
 
-```bash
-npm install
-```
+    npm install
 
 Build the TypeScript CLI into `dist/`:
 
-```bash
-npm run build
-```
+    npm run build
 
 Run the full smoke test suite:
 
-```bash
-npm run smoke
-```
+    npm run smoke
 
 `npm test` is an alias for the smoke test:
 
-```bash
-npm test
-```
+    npm test
 
 Check that the built CLI can load its modules:
 
-```bash
-node dist/main.js doctor
-```
+    node dist/main.js doctor
 
 Parse a `.g4` file and print the AST as JSON:
 
-```bash
-node dist/main.js parse examples/classroom-report.g4 --json
-```
+    node dist/main.js parse examples/classroom-report.g4 --json
 
 Render a `.g4` file into an output directory containing `index.html`:
 
-```bash
-node dist/main.js render examples/classroom-report.g4 --out dist/site
-```
+    node dist/main.js render examples/classroom-report.g4 --out dist/site
 
 Run the rollback proof demo:
 
-```bash
-node dist/main.js rollback-demo
-```
+    node dist/main.js rollback-demo
 
 Generated file:
 
-```text
-dist/rollback-demo/index.html
-```
+    dist/rollback-demo/index.html
 
 Run the snapshot proof demo:
 
-```bash
-node dist/main.js snapshot-demo
-```
+    node dist/main.js snapshot-demo
 
 Generated directory:
 
-```text
-dist/snapshots/pass-3-demo/
-```
+    dist/snapshots/pass-3-demo/
 
 Emit the deterministic sine stream as JSONL:
 
-```bash
-node dist/main.js emit-sine-stream
-```
+    node dist/main.js emit-sine-stream
 
 Generate the SVG sine stream control demo from stdin:
 
-```bash
-node dist/main.js emit-sine-stream | node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo
-```
+    node dist/main.js emit-sine-stream | node dist/main.js sine-demo --stdin --window 48 --out dist/sine-demo
 
 Generated file:
 
-```text
-dist/sine-demo/index.html
-```
+    dist/sine-demo/index.html
 
 Generate the local Chart.js sine demo:
 
-```bash
-node dist/main.js chartjs-sine-demo
-```
+    node dist/main.js chartjs-sine-demo
 
 Generated file:
 
-```text
-dist/chartjs-sine-demo/index.html
-```
+    dist/chartjs-sine-demo/index.html
 
 Generate the local Three.js ocean points demo:
 
-```bash
-node dist/main.js three-ocean-points-demo
-```
+    node dist/main.js three-ocean-points-demo
 
 Generated file:
 
-```text
-dist/three-ocean-points-demo/index.html
-```
+    dist/three-ocean-points-demo/index.html
 
 Generate the Three.js ocean points demo with custom colors:
 
-```bash
-node dist/main.js three-ocean-points-demo --bg black --grid green --axis white --point cyan --line cyan --accent purple --text white
-```
+    node dist/main.js three-ocean-points-demo --bg black --grid green --axis white --point cyan --line cyan --accent purple --text white
 
 Supported color values include named colors, short hex, long hex, bare long hex, and `rgb(r,g,b)` values. Supported color flags are:
 
@@ -213,3 +282,23 @@ Supported color values include named colors, short hex, long hex, bare long hex,
 - `--data-lines` or `--line`
 - `--panel-accent` or `--accent`
 - `--text`
+
+Generate the local live probability sea demo:
+
+    node dist/main.js live-probability-sea
+
+Generated directory:
+
+    dist/live-probability-sea/
+
+Run the live probability sea data smoke test:
+
+    node dist/live-probability-sea/smoke-test.js
+
+Run the live probability sea browser render proof:
+
+    node dist/live-probability-sea/browser-render-smoke-test.js
+
+Generated proof file:
+
+    dist/live-probability-sea/browser-render-proof.json
